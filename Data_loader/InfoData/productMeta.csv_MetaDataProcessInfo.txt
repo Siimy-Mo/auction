@@ -1,0 +1,2 @@
+read auction data time: 2.0764191150665283 s
+get name time: 0.17932558059692383 s

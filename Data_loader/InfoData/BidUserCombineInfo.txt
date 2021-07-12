@@ -1,0 +1,2 @@
+bidRecord.csv has user: 5975
+CombineList has user: 5975

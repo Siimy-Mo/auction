@@ -1,0 +1,5 @@
+Best Performance: HR: 0.000000| MRR: 0.000000| NDCG: 0.000000
+Best Performance: HR: 0.013990| MRR: 0.008290| NDCG: 0.008290
+Best Performance: HR: 0.013990| MRR: 0.008290| NDCG: 0.008290
+Best Performance: HR: 0.013990| MRR: 0.008290| NDCG: 0.008290
+Best Performance: HR: 0.013990| MRR: 0.008290| NDCG: 0.008290

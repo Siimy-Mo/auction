@@ -1,0 +1,5 @@
+Performance_PSAM_Model_Windowsize_5_Epoch_100_lr_0.0001_embsize_100_numunit_100
+06/21
+Best Performance: HR: 0.018578| MRR: 0.001853| NDCG: 0.005283
+Best Performance: HR: 0.712325| MRR: 0.581475| NDCG: 0.612932
+Best Performance: HR: 0.712325| MRR: 0.578144| NDCG: 0.610692

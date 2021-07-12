@@ -1,0 +1,27 @@
+'int' object is not iterable
+'int' object is not iterable
+'int' object is not iterable
+'int' object is not iterable
+'BidderData' object has no attribute 'UserID'
+append() takes exactly one argument (2 given)
+'asign'
+'list' object has no attribute 'update'
+'BidderData' object has no attribute 'UserPurchaseList'
+object of type 'int' has no len()
+'list' object has no attribute 'shape'
+'list' object has no attribute 'shape'
+0.0
+0.0
+0.0
+0.0
+0.0
+0
+371
+371
+371
+371
+371
+371
+371
+unhashable type: 'list'
+unhashable type: 'list'
