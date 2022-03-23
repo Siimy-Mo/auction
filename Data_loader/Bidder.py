@@ -1,12 +1,15 @@
 class BidderData:
-    def __init__(self, bidderID):
+    def __init__(self, bidderID, biderrate):
         self.bidderID = bidderID
+
+        self.biderrate = biderrate
 
         self.UserBidList = []
 
     def AddBid(self, ReviewInfo):
         BidList = dict()
-        # ReviewKey = ['bidderID', 'asin', 'bidorBuy', 'unixBidTime', 'bidTime']
+        BidList['test'] = ReviewInfo['test']
+        # ReviewKey = ['test','bidderID', 'asin', 'bidorBuy', 'unixBidTime', 'bidTime']
         BidList['bidderID'] = ReviewInfo['bidderID']
 
         BidList['asin'] = ReviewInfo['asin']
@@ -16,6 +19,8 @@ class BidderData:
         BidList['unixBidTime'] = ReviewInfo['unixBidTime']
 
         BidList['bidTime'] = ReviewInfo['bidTime']
+        
+        BidList['test'] = ReviewInfo['test']
 
         self.UserBidList.append(BidList)
 

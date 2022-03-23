@@ -1,0 +1,83 @@
+Experiments Information (User number: 2372): 
+Timelines of eval and test are 3363201.0 and 3400569.9000000954 with coeffs 0.9 and 0.91
+Numbers of dataset are 7306, 2372 (Users); 12899, 2403(Auctions) 
+Proportions(Auction/User): 0.57 (Train) and 0.99 (Test) 
+Test auction number in both periods: 685, in Test period Only: 1718
+
+Experiments Information (User number: 2296): 
+Timelines of eval and test are 3363201.0 and 3437938.7999999523 with coeffs 0.9 and 0.92
+Numbers of dataset are 7306, 2296 (Users); 12553, 2327(Auctions) 
+Proportions(Auction/User): 0.58 (Train) and 0.99 (Test) 
+Test auction number in both periods: 683, in Test period Only: 1644
+
+Experiments Information (User number: 1474): 
+Timelines of eval and test are 3363201.0 and 3475307.7000000477 with coeffs 0.9 and 0.93
+Numbers of dataset are 7306, 1474 (Users); 8612, 1397(Auctions) 
+Proportions(Auction/User): 0.85 (Train) and 1.06 (Test) 
+Test auction number in both periods: 394, in Test period Only: 1003
+
+Experiments Information (User number: 1407): 
+Timelines of eval and test are 3363201.0 and 3512676.5999999046 with coeffs 0.9 and 0.94
+Numbers of dataset are 7306, 1407 (Users); 8243, 1322(Auctions) 
+Proportions(Auction/User): 0.89 (Train) and 1.06 (Test) 
+Test auction number in both periods: 347, in Test period Only: 975
+
+Experiments Information (User number: 1119): 
+Timelines of eval and test are 3363201.0 and 3550045.5 with coeffs 0.9 and 0.95
+Numbers of dataset are 7306, 1119 (Users); 6744, 1046(Auctions) 
+Proportions(Auction/User): 1.08 (Train) and 1.07 (Test) 
+Test auction number in both periods: 339, in Test period Only: 707
+
+Experiments Information (User number: 956): 
+Timelines of eval and test are 3363201.0 and 3587414.4000000954 with coeffs 0.9 and 0.96
+Numbers of dataset are 7306, 956 (Users); 5838, 891(Auctions) 
+Proportions(Auction/User): 1.25 (Train) and 1.07 (Test) 
+Test auction number in both periods: 286, in Test period Only: 605
+
+Experiments Information (User number: 744): 
+Timelines of eval and test are 3363201.0 and 3624783.2999999523 with coeffs 0.9 and 0.97
+Numbers of dataset are 7306, 744 (Users); 4537, 696(Auctions) 
+Proportions(Auction/User): 1.61 (Train) and 1.07 (Test) 
+Test auction number in both periods: 253, in Test period Only: 443
+
+Experiments Information (User number: 407): 
+Timelines of eval and test are 3363201.0 and 3662152.2000000477 with coeffs 0.9 and 0.98
+Numbers of dataset are 7306, 407 (Users); 2521, 368(Auctions) 
+Proportions(Auction/User): 2.90 (Train) and 1.11 (Test) 
+Test auction number in both periods: 140, in Test period Only: 228
+
+Experiments Information (User number: 346): 
+Timelines of eval and test are 3363201.0 and 3699521.0999999046 with coeffs 0.9 and 0.99
+Numbers of dataset are 7306, 346 (Users); 2200, 321(Auctions) 
+Proportions(Auction/User): 3.32 (Train) and 1.08 (Test) 
+Test auction number in both periods: 128, in Test period Only: 193
+
+Experiments Information (User number: 187): 
+Timelines of eval and test are 3363201.0 and 3718205.5499999523 with coeffs 0.9 and 0.995
+Numbers of dataset are 7306, 187 (Users); 1196, 179(Auctions) 
+Proportions(Auction/User): 6.11 (Train) and 1.04 (Test) 
+Test auction number in both periods: 83, in Test period Only: 96
+
+Experiments Information (User number: 96): 
+Timelines of eval and test are 3363201.0 and 3729416.2200000286 with coeffs 0.9 and 0.998
+Numbers of dataset are 7306, 96 (Users); 635, 89(Auctions) 
+Proportions(Auction/User): 11.51 (Train) and 1.08 (Test) 
+Test auction number in both periods: 43, in Test period Only: 46
+
+Experiments Information (User number: 57): 
+Timelines of eval and test are 3363201.0 and 3733153.109999895 with coeffs 0.9 and 0.999
+Numbers of dataset are 7306, 57 (Users); 384, 56(Auctions) 
+Proportions(Auction/User): 19.03 (Train) and 1.02 (Test) 
+Test auction number in both periods: 33, in Test period Only: 23
+
+Experiments Information (User number: 29): 
+Timelines of eval and test are 3363201.0 and 3735021.5550000668 with coeffs 0.9 and 0.9995
+Numbers of dataset are 7306, 29 (Users); 178, 28(Auctions) 
+Proportions(Auction/User): 41.04 (Train) and 1.04 (Test) 
+Test auction number in both periods: 17, in Test period Only: 11
+
+Experiments Information (User number: 2): 
+Timelines of eval and test are 3363201.0 and 3736703.155499935 with coeffs 0.9 and 0.99995
+Numbers of dataset are 7306, 2 (Users); 12, 2(Auctions) 
+Proportions(Auction/User): 608.83 (Train) and 1.00 (Test) 
+Test auction number in both periods: 1, in Test period Only: 1

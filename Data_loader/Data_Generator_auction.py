@@ -1,5 +1,4 @@
 import os,pickle,errno
-from Data_loader.User import UserData
 import Data_loader.Data_Util as Data_Util
 import Data_loader.BidRecordDataProcess as BidRecordDataProcess
 import Data_loader.CombineBidData as CombineBidData
@@ -23,7 +22,7 @@ def PreProcessData(params):
 
 	# # Combine all the meta dataset
 	MetaCombineData = CombineMetaData.CombineMetaDataSet(MetaDataBinSavePath=params.MetaDataSavepath, CombineMetaDataBinProcessInfoPath=params.ProcessInfoPath,CombineMetaDataBinSavePath=params.Meta_CombineDataSavepath)
-	
+
 	max_bid_len = max(zip(BidFilename_MaxBidLen_Dict.values(), BidFilename_MaxBidLen_Dict.keys()))[0] 
 	max_name_len = max(zip(MetaFilename_MaxItemLen_Dict.values(), MetaFilename_MaxItemLen_Dict.keys()))[0] 
 
@@ -33,7 +32,7 @@ def PreProcessData(params):
 
 	# 1是dict，2是df
 	print(params.neg_sample_num, max_name_len, max_bid_len, max_product_len, DataSetSavePath, params.short_term_size, params.long_term_size)
-	Dataset = Data.DataSet(BidUserCombineData,MetaCombineData,params.neg_sample_num, max_name_len,max_bid_len,max_product_len, DataSetSavePath, params.short_term_size)
+	Dataset = Data.DataSet(BidUserCombineData,MetaCombineData,params.neg_sample_num, max_name_len,max_bid_len,max_product_len, DataSetSavePath, params.short_term_size,params.long_term_size)
 
 	# # for i in range(len(CategorySet)):
 	# # 	DataSetSavePath = DataSetSavePath + CategorySet[i] + "_"
@@ -82,45 +81,56 @@ def Generate_Data(params):
 	
 	# train_startpos += params.batch_size 應該是目前所在位置，+ size， 形成一個範圍。
 def Get_next_batch(Dataset, dataset, startpos, batch_size):
-	# ((uid, cur_before_pids_pos,cur_before_pids_pos_len, cur_before_pids_flag,,current_pid_pos))
+	# ((uid,cur_before_pids_pos,cur_before_pids_pos_len, 
+	# cur_before_pids_time_diff, cur_before_pids_type, \
+                                        # current_pid_pos, current_pid_time, current_pid_type))
 	dataset_len = len(dataset)
 	CNIList = []
-	CNWList = []
-	before_pids_duration = []
-	before_pids_openbid = []
 	if (startpos + batch_size) > dataset_len:
 		uids = [dataset[i,0] for i in range(startpos, dataset_len)]
 		before_pids_pos = [dataset[i,1] for i in range(startpos, dataset_len)]
 		before_pids_pos_len = [dataset[i,2] for i in range(startpos, dataset_len)]
-		before_pids_flag = [dataset[i,3] for i in range(startpos, dataset_len)]
-		current_pid_pos = [dataset[i,4] for i in range(startpos, dataset_len)]
+		current_before_pids_time_diff = [dataset[i,3] for i in range(startpos, dataset_len)]
+
+		cur_long_before_pids_pos = [dataset[i,4] for i in range(startpos, dataset_len)]
+		cur_long_before_pids_pos_len = [dataset[i,5] for i in range(startpos, dataset_len)]
+		cur_long_before_time_pos = [dataset[i,6] for i in range(startpos, dataset_len)]
+
+		current_pid_pos = [dataset[i,7] for i in range(startpos, dataset_len)]
+		current_pid_time = [dataset[i,8] for i in range(startpos, dataset_len)]
+		current_pid_bidderList = [dataset[i,9] for i in range(startpos, dataset_len)]
 		for i in range(dataset_len - startpos):
-			current_neg_item, current_neg_word = Dataset.neg_sample()
+			current_neg_item, current_neg_word = Dataset.neg_sample(current_pid_pos[i])
 			CNIList.append(current_neg_item)
-			CNWList.append(current_neg_word)
+			if current_pid_pos[i] in CNIList[i]:
+				print(current_pid_pos[i],CNIList[i])
+			# CNWList.append(current_neg_word)
 	else:
 		uids = [dataset[i,0] for i in range(startpos, startpos + batch_size)]
 		before_pids_pos = [dataset[i,1] for i in range(startpos, startpos + batch_size)]
 		before_pids_pos_len = [dataset[i,2] for i in range(startpos, startpos + batch_size)]
-		before_pids_flag = [dataset[i,3] for i in range(startpos, startpos + batch_size)]
-		current_pid_pos = [dataset[i,4] for i in range(startpos, startpos + batch_size)]
-		for i in range(batch_size):
-			current_neg_item, current_neg_word = Dataset.neg_sample()
-			CNIList.append(current_neg_item)
-			CNWList.append(current_neg_word)
-	# for i in range(len(before_pids_pos)):
-	# 	duration = []
-	# 	openbid = []
-	# 	for j in before_pids_pos[i]:
-	# 		attr = Dataset.auction_dataset[j]
-	# 		duration.append(attr[0])
-	# 		openbid.append(attr[1])
-	# 	before_pids_duration.append(duration)
-	# 	before_pids_openbid.append(openbid)
+		current_before_pids_time_diff = [dataset[i,3] for i in range(startpos, startpos + batch_size)]
+		
+		cur_long_before_pids_pos = [dataset[i,4] for i in range(startpos, startpos + batch_size)]
+		cur_long_before_pids_pos_len = [dataset[i,5] for i in range(startpos, startpos + batch_size)]
+		cur_long_before_time_pos = [dataset[i,6] for i in range(startpos, startpos + batch_size)]
 
-	return np.array(uids), np.array(before_pids_pos), np.array(before_pids_pos_len),np.array(before_pids_flag), \
-			np.array(current_pid_pos),np.array(CNIList)
-			# np.array(current_pid_pos),np.array(CNIList), np.array(before_pids_duration),np.array(before_pids_openbid)
+		current_pid_pos = [dataset[i,7] for i in range(startpos, startpos + batch_size)]
+		current_pid_time = [dataset[i,8] for i in range(startpos, startpos + batch_size)]
+		current_pid_bidderList = [dataset[i,9] for i in range(startpos, startpos + batch_size)]
+		for i in range(batch_size):
+			current_neg_item, current_neg_word = Dataset.neg_sample(current_pid_pos[i])
+			CNIList.append(current_neg_item)
+			if current_pid_pos[i] in CNIList[i]:
+				print(current_pid_pos[i],CNIList[i])
+			# CNWList.append(current_neg_word)
+
+
+	return np.array(uids), \
+			np.array(before_pids_pos), np.array(before_pids_pos_len), np.array(current_before_pids_time_diff),\
+			np.array(cur_long_before_pids_pos), np.array(cur_long_before_pids_pos_len), np.array(cur_long_before_time_pos),\
+			np.array(current_pid_pos),np.array(CNIList), np.array(current_pid_time), np.array(current_pid_bidderList)
+		#    np.array(current_pid_duration),np.array(current_pid_openbid),np.array(before_pids_duration),np.array(before_pids_openbid),\
 
 # Test
 #if __name__ == "__main__":

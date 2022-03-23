@@ -8,9 +8,10 @@ def ReadDataFile(data_path):
     values = []
     for index, row in ReviewDatas.iterrows():
         titleList=row['name'].split(' ')
-
-        values.append({'asin':row['asin'], 'name':titleList,'openbid':row['openbid'],'auction_duration':row['auction_duration'],
-                        'unixEndDate':row['unixEndDate'],'endDate':row['endDate'],'bidders':row['bidders'],'bids':row['bids']})
+        # asin;type;name;openbid;price;auction_duration;unixEndDate;endDate;bidders;bids;test
+        values.append({'asin':row['asin'],'type':row['type'],'name': row['name'],'openbid':row['openbid'],'price':row['price'],
+                        'auction_duration':row['auction_duration'],'unixEndDate':row['unixEndDate'],'endDate':row['endDate'],'bidders':row['bidders'],
+                        'bids':row['bids'],'nameList':titleList})
 
     return values
 
@@ -73,9 +74,9 @@ def DoneAllFile(MetaDataFilePath, MetaDataFileProcessInfopath, MetaDataBinSavePa
             meta_datas.set_index('asin', inplace=True)
             #print(MetaFileName, "Start to get query")
             startgetquerytime = time.time()
-            meta_datas['name'] = meta_datas['name'].map(get_query)  # 統一化：Apple, -> a p p l e,
+            meta_datas['nameList'] = meta_datas['nameList'].map(get_query)  # 統一化：Apple, -> a p p l e,
             # Get Max Query Len
-            eachMQL = GetMaxLength(meta_datas['name'])
+            eachMQL = GetMaxLength(meta_datas['nameList'])
             Filename_MaxNameLen[MetaFileName] = eachMQL
             endgetquerytime = time.time()
             #print(MetaFileName, "end to get query, time:", endgetquerytime - startgetquerytime)

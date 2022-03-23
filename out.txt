@@ -1,27 +1,56 @@
+dataFileter() takes 3 positional arguments but 4 were given
+dataFileter() takes 3 positional arguments but 4 were given
+1621126495.0
+1621126495.0
+unhashable type: 'list'
+unhashable type: 'list'
+list indices must be integers or slices, not list
+can only concatenate list (not "str") to list
+unsupported operand type(s) for +: 'set' and 'set'
+unsupported operand type(s) for +: 'set' and 'set'
+unhashable type: 'list'
+unhashable type: 'list'
+-0.9949460739010619
+7562
+7562
+7562
+7562
+7562
+len() takes exactly one argument (2 given)
+len() takes exactly one argument (2 given)
+related_info() takes 2 positional arguments but 4 were given
+related_info() takes 2 positional arguments but 4 were given
+related_info() takes 2 positional arguments but 4 were given
+related_info() takes 2 positional arguments but 4 were given
+related_info() takes 2 positional arguments but 4 were given
+related_info() takes 2 positional arguments but 4 were given
+related_info() takes 2 positional arguments but 4 were given
+related_info() takes 2 positional arguments but 4 were given
+13198
+'Game'
+'Game'
+'Game'
 'int' object is not iterable
-'int' object is not iterable
-'int' object is not iterable
-'int' object is not iterable
-'BidderData' object has no attribute 'UserID'
-append() takes exactly one argument (2 given)
-'asign'
-'list' object has no attribute 'update'
-'BidderData' object has no attribute 'UserPurchaseList'
-object of type 'int' has no len()
+'DataSet' object has no attribute 'auction_dataset'
+'set' object does not support item assignment
+'asin'
+'asin'
 'list' object has no attribute 'shape'
-'list' object has no attribute 'shape'
-0.0
-0.0
-0.0
-0.0
-0.0
-0
-371
-371
-371
-371
-371
-371
-371
+25123
+25123
+25123
+25123
+25123
+25123
+25123
+25123
+25123
+25123
+25123
+unsupported operand type(s) for +: 'int' and 'list'
+unsupported operand type(s) for +: 'int' and 'list'
+unsupported operand type(s) for +: 'int' and 'list'
+unhashable type: 'list'
+unhashable type: 'list'
 unhashable type: 'list'
 unhashable type: 'list'

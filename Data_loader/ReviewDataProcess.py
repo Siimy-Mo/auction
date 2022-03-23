@@ -1,7 +1,6 @@
 import gzip,json,time,os,pickle,nltk,re
 import numpy as np
 import pandas as pd
-from Data_loader.User import UserData
 from Data_loader.Data_Util import ReadFileList
 def ReadRawDataFile_ebay(Filename, Filepath, FileSavePath):
     ReviewDatas = pd.read_csv(Filepath, sep=';', engine='python').sort_values(by='unixBidTime')

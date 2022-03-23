@@ -1,0 +1,40 @@
+	5°ò¤_short term emb¡G TD -> LSTM -> Combination (HR = 0.0730)
+	8°ò¤_5¡Aepoch?50­×§ï¦Ü200
+Best Performance: HR10: 0.1204|HR20: 0.1244|HR50: 0.1372| MRR10: 0.1145|MRR20: 0.1148|MRR50: 0.1152|NDCG10: 0.1157|NDCG20: 0.1170|NDCG50: 0.1193
+The maximum in intersection auction List:  14  with the index:  170
+The maximum in testOnly auction List:  137  with the index:  94
+	3°ò¤_short term emb¡Gadd attr -> TD -> LSTM -> Combination (HR = 0.0706)
+	9°ò¤_3¡Aepoch?50­×§ï¦Ü200
+Best Performance: HR10: 0.1172|HR20: 0.1188|HR50: 0.1324| MRR10: 0.1104|MRR20: 0.1109|MRR50: 0.1113|NDCG10: 0.1115|NDCG20: 0.1130|NDCG50: 0.1158
+The maximum in intersection auction List:  18  with the index:  151
+The maximum in testOnly auction List:  132  with the index:  96
+	10¦Û¤v?ªºTransformer
+Best Performance: HR10: 0.0265|HR20: 0.0393|HR50: 0.0803| MRR10: 0.0087|MRR20: 0.0096|MRR50: 0.0109|NDCG10: 0.0122|NDCG20: 0.0155|NDCG50: 0.0234
+	11¦Û¤v?ªºTransformer¡A¥h±¼drop layer
+Best Performance: HR10: 0.0233|HR20: 0.0377|HR50: 0.0754| MRR10: 0.0076|MRR20: 0.0087|MRR50: 0.0098|NDCG10: 0.0105|NDCG20: 0.0137|NDCG50: 0.0205
+	12BERT4Recªºtransformer
+Best Performance: HR10: 0.0161|HR20: 0.0241|HR50: 0.0498| MRR10: 0.0051|MRR20: 0.0059|MRR50: 0.0069|NDCG10: 0.0075|NDCG20: 0.0096|NDCG50: 0.0146
+	13BERT4Recªºtransformerªºattention¥h±¼drop layer
+Best Performance: HR10: 0.0144|HR20: 0.0249|HR50: 0.0570| MRR10: 0.0043|MRR20: 0.0051|MRR50: 0.0061|NDCG10: 0.0065|NDCG20: 0.0092|NDCG50: 0.0155
+	14¥h±¼Transfomer¤¤user embeddingªºcombination
+Best Performance: HR10: 0.0201|HR20: 0.0281|HR50: 0.0578| MRR10: 0.0059|MRR20: 0.0065|MRR50: 0.0074|NDCG10: 0.0091|NDCG20: 0.0112|NDCG50: 0.0171
+	15°ò¤_14¡A15 ?embedding size§ï?128
+Best Performance: HR10: 0.0161|HR20: 0.0273|HR50: 0.0570| MRR10: 0.0046|MRR20: 0.0053|MRR50: 0.0061|NDCG10: 0.0072|NDCG20: 0.0100|NDCG50: 0.0157
+	16°ò¤_8¡A?embedding size§ï?128
+Best Performance: HR10: 0.1244|HR20: 0.1316|HR50: 0.1421| MRR10: 0.1172|MRR20: 0.1175|MRR50: 0.1177|NDCG10: 0.1186|NDCG20: 0.1203|NDCG50: 0.1224
+	17 ï¼Ÿï?ï¼Ÿå?äº?
+Best Performance: HR10: 0.1032|HR20: 0.1054|HR50: 0.1142| MRR10: 0.0963|MRR20: 0.0964|MRR50: 0.0967|NDCG10: 0.0979|NDCG20: 0.0985|NDCG50: 0.1000
+	18 °ò¤_15,test timeline?0.9:0.95§ï¨ì.95:0.98
+Best Performance: HR10: 0.0466|HR20: 0.0559|HR50: 0.1515| MRR10: 0.0152|MRR20: 0.0173|MRR50: 0.0191|NDCG10: 0.0219|NDCG20: 0.0296|NDCG50: 0.0425
+	19 °ò¤_16,test timeline?0.9:0.95§ï¨ì.95:0.98
+Best Performance: HR10: 0.1795|HR20: 0.1841|HR50: 0.2051| MRR10: 0.1703|MRR20: 0.1708|MRR50: 0.1715|NDCG10: 0.1721|NDCG20: 0.1732|NDCG50: 0.1775
+
+Best Performance: HR10: 0.0413|HR20: 0.0496|HR50: 0.1364| MRR10: 0.0141|MRR20: 0.0153|MRR50: 0.0172|NDCG10: 0.0193|NDCG20: 0.0208|NDCG50: 0.0386
+Best Performance: HR10: 0.4757|HR20: 0.4778|HR50: 0.4979| MRR10: 0.4603|MRR20: 0.4610|MRR50: 0.4612|NDCG10: 0.4636|NDCG20: 0.4655|NDCG50: 0.4677
+	transformer: multi-head inputTD
+Best Performance: HR10: 0.4736|HR20: 0.4757|HR50: 0.4884| MRR10: 0.4609|MRR20: 0.4612|MRR50: 0.4615|NDCG10: 0.4638|NDCG20: 0.4646|NDCG50: 0.4667
+	LSTM:
+Best Performance: HR10: 0.4736|HR20: 0.4736|HR50: 0.4799| MRR10: 0.4593|MRR20: 0.4593|MRR50: 0.4596|NDCG10: 0.4629|NDCG20: 0.4629|NDCG50: 0.4651
+	Transformer combined with uid embeddingBest Performance: 
+Best Performance: HR10: 0.0169|HR20: 0.0275|HR50: 0.0666| MRR10: 0.0048|MRR20: 0.0055|MRR50: 0.0066|NDCG10: 0.0076|NDCG20: 0.0102|NDCG50: 0.0178
+	Transformer(all layers) :

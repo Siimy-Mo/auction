@@ -32,20 +32,18 @@ def help_f_cut_stop_word(x):
 
 def UserAggregation(BidData):
     UserList = []
-    First = True
+    user_index = []
     for index, row in BidData.iterrows():
-        if First == True:
-            User = BidderData(row['bidderID'])
+        uid = row['bidderID']
+        if uid not in user_index:
+            User = BidderData(row['bidderID'],row['bidderrate'])
             User.AddBid(row)
             UserList.append(User)
-            First = False
+            user_index.append(uid)
         else:
-            if row['bidderID'] == UserList[len(UserList) - 1].bidderID:
-                UserList[len(UserList) - 1].AddBid(row)
-            else:
-                User = BidderData(row['bidderID'])
-                User.AddBid(row)
-                UserList.append(User)
+            index = user_index.index(uid)
+            UserList[index].AddBid(row)
+
     return UserList
 
 def GetMaxBidLen(data):

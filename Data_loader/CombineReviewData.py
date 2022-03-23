@@ -1,5 +1,4 @@
 import operator,glob,pickle,os
-from Data_loader.User import UserData
 from Data_loader.Data_Util import ReadFileList
 def FindTheSameUser(U1, U2):
     User1List = []
