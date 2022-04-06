@@ -38,3 +38,4 @@ Best Performance: HR10: 0.4736|HR20: 0.4736|HR50: 0.4799| MRR10: 0.4593|MRR20: 0
 	Transformer combined with uid embeddingBest Performance: 
 Best Performance: HR10: 0.0169|HR20: 0.0275|HR50: 0.0666| MRR10: 0.0048|MRR20: 0.0055|MRR50: 0.0066|NDCG10: 0.0076|NDCG20: 0.0102|NDCG50: 0.0178
 	Transformer(all layers) :
+Best Performance: HR10: 0.1190|HR20: 0.1930|HR50: 0.4900| MRR10: 0.0378|MRR20: 0.0439|MRR50: 0.0528|NDCG10: 0.0549|NDCG20: 0.0732|NDCG50: 0.1312

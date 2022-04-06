@@ -144,8 +144,8 @@ class DataSet(object):
         User_bid_time = []      # 統計用戶競拍時間。
         User_purchase_len_list = []
         uid+=1
-        test_pid_list = set()
-        test_uid_list = set()
+        test_pid_list = []
+        test_uid_list = []
         for i in range(len(UserData)):
             # user id 录入词典
             self.id_2_user[uid] = UserData[i].bidderID
@@ -171,8 +171,8 @@ class DataSet(object):
                         self.auction2bidders[pid]=set()
                     self.auction2bidders[pid].update([uid])
                 else:
-                    test_pid_list.update([pid])
-                    test_uid_list.update([uid])
+                    test_pid_list.append(pid)
+                    test_uid_list.append(uid)
 
 
 
@@ -477,8 +477,7 @@ class DataSet(object):
 
         if pred in RankList_10:
             # print('Epoch:',e ,'Hit!, Rank: ', RankList_10.index(pred))
-            if pred in self.test_pid_list:
-                return 1
+            return 1
         return 0  # allSets_auction, auction_testOnly =
 
         # print('The top-10 auction list is:',RankList_10)

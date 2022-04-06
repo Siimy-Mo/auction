@@ -9,8 +9,8 @@
             "type": "python",
             "request": "launch",
             // "program": "mofan.py",
-            "program": "main_auction.py",
-            // "program": "PreData.py",
+            // "program": "main_auction.py",
+            "program": "./Dataset/PreData.py",
             "console": "integratedTerminal",
             "args": ["--model", "./Model/psammodel/", "--ReviewDataPath", "./Dataset/Review/", "--MetaDataPath", "./Dataset/Meta/", "--window-size", "5"]
         }

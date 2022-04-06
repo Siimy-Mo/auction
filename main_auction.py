@@ -237,8 +237,8 @@ def train(psammodel, Embed, Dataset, params):
     l9=plt.plot(x_data,opt_loss_list,'b--',label='opt_loss_list')
     plt.plot(x_data,opt_loss_list,'ro-')
     plt.title('The opt_loss metrics in Three Conditions')
-    plt.xlabel('row')
-    plt.ylabel('column')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
     plt.legend()
     plt.show()
 
@@ -247,8 +247,8 @@ def train(psammodel, Embed, Dataset, params):
     l3=plt.plot(x_data,HR50_list,'b--',label='HR50_list')
     plt.plot(x_data,HR10_list,'ro-',x_data,HR20_list,'g+-',x_data,HR50_list,'b^-')
     plt.title('The HR metrics in Three Conditions')
-    plt.xlabel('row')
-    plt.ylabel('column')
+    plt.xlabel('Epoch')
+    plt.ylabel('Performance')
     plt.legend()
     plt.show()
     input()
@@ -258,8 +258,8 @@ def train(psammodel, Embed, Dataset, params):
     l6=plt.plot(x_data,MRR50_list,'b--',label='MRR50_list')
     plt.plot(x_data,MRR10_list,'ro-',x_data,MRR20_list,'g+-',x_data,MRR50_list,'b^-')
     plt.title('The MRR metrics in Three Conditions')
-    plt.xlabel('row')
-    plt.ylabel('column')
+    plt.xlabel('Epoch')
+    plt.ylabel('Performance')
     plt.legend()
     plt.show()
     input()
@@ -269,8 +269,8 @@ def train(psammodel, Embed, Dataset, params):
     l9=plt.plot(x_data,NDCG50_list,'b--',label='NDCG50_list')
     plt.plot(x_data,NDCG10_list,'ro-',x_data,NDCG20_list,'g+-',x_data,NDCG50_list,'b^-')
     plt.title('The NDCG metrics in Three Conditions')
-    plt.xlabel('row')
-    plt.ylabel('column')
+    plt.xlabel('Epoch')
+    plt.ylabel('Performance')
     plt.legend()
     plt.show()
 
@@ -354,7 +354,7 @@ def parse_args():
 
     parser.add_argument('--user-emb', type=str, default="Short_term",
                         help='Select type of user embedding: Complete, Short_term and Long_term')
-    parser.add_argument('--loss-f', type=str, default="MetricLearning",
+    parser.add_argument('--loss-f', type=str, default="Inner_product",
                         help='Select type of loss function: MetricLearning and Inner_product')
     parser.add_argument('--window-size', type=int, default=5,
                         help='ProNADE Input Data Window size(0:Use all product bought before)')
@@ -368,7 +368,7 @@ def parse_args():
                         help='which activation to use: sigmoid|tanh')
     parser.add_argument('--learning-rate', type=float, default=1e-4,
                         help='initial learning rate')
-    parser.add_argument('--epoch', type=int, default=50,
+    parser.add_argument('--epoch', type=int, default=200,
                         help='train data epoch')
     parser.add_argument('--batch-size', type=int, default=64,
                         help='the batch size')

@@ -379,16 +379,17 @@ class Seq(object):
 
         x_embed = self.embed(self.short_term_input_productemb)# x = 64,5,128 , y=1 5 128 和64 128不兼容 T
         pad_mask = self._pad_mask(x)    # 64,1,1,5
-        self.encoded_z = self.encoder.call(x_embed, short_term_expand_q, training=False, mask=pad_mask ) #64,5,128 
+        self.encoded_z = self.encoder.call(x_embed, x_embed, training=False, mask=pad_mask ) #64,5,128 
 
         # current_pid_bidderList
         
         # lstm 输出是： self.short_term_lstm_outputs
         # transformer 输出是： self.encoded_z[:,-1,:] 最后一层
         self.transformer_output = tf.tile(tf.expand_dims(self.encoded_z[:,-1,:], axis=1),[1,params.short_term_size,1])
-        self.short_term_attention = tf.nn.softmax(tf.multiply(self.short_term_lstm_outputs, short_term_expand_q))
+        self.short_term_attention = tf.nn.softmax(self.transformer_output)
+        # self.short_term_attention = tf.nn.softmax(tf.multiply(self.short_term_lstm_outputs, short_term_expand_q))
         
-        self.user_short_term_emb = tf.reduce_sum(tf.multiply(self.short_term_attention, self.short_term_lstm_outputs),axis=1)
+        self.user_short_term_emb = tf.reduce_sum(tf.multiply(self.short_term_attention, self.transformer_output),axis=1)
         short_term_combine_user_item_emb =  tf.concat([self.user_ID_emb, self.user_short_term_emb], 1)
 
         # 全连接层。
