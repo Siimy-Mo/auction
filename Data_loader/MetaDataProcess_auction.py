@@ -1,17 +1,20 @@
 import gzip,time,pickle,os
 import pandas as pd
 from Data_loader.Data_Util import ReadFileList
+from sklearn import preprocessing
 
 def ReadDataFile(data_path):
     # asin;name;openbid;auction_duration;unixEndDate;endDate;bidders;bids
     ReviewDatas = pd.read_csv(data_path, sep=';', engine='python')
     values = []
+    # 把item type, duration 变成 label!
+    typeEncoder= preprocessing.LabelEncoder()
+    durationEncoder= preprocessing.LabelEncoder()
+    ReviewDatas.type= typeEncoder.fit_transform(ReviewDatas.type)
+    ReviewDatas.auction_duration= durationEncoder.fit_transform(ReviewDatas.auction_duration)
     for index, row in ReviewDatas.iterrows():
-        titleList=row['name'].split(' ')
-        # asin;type;name;openbid;price;auction_duration;unixEndDate;endDate;bidders;bids;test
-        values.append({'asin':row['asin'],'type':row['type'],'name': row['name'],'openbid':row['openbid'],'price':row['price'],
-                        'auction_duration':row['auction_duration'],'unixEndDate':row['unixEndDate'],'endDate':row['endDate'],'bidders':row['bidders'],
-                        'bids':row['bids'],'nameList':titleList})
+        # asin;openbid;type;auction_duration
+        values.append({'asin':row['asin'],'openbid':row['openbid'],'type':row['type'],'auction_duration':row['auction_duration']})
 
     return values
 
@@ -72,16 +75,6 @@ def DoneAllFile(MetaDataFilePath, MetaDataFileProcessInfopath, MetaDataBinSavePa
             f.write("read auction data time: %s s\n" % (str(endreadtime - startreadtime)))
 
             meta_datas.set_index('asin', inplace=True)
-            #print(MetaFileName, "Start to get query")
-            startgetquerytime = time.time()
-            meta_datas['nameList'] = meta_datas['nameList'].map(get_query)  # 統一化：Apple, -> a p p l e,
-            # Get Max Query Len
-            eachMQL = GetMaxLength(meta_datas['nameList'])
-            Filename_MaxNameLen[MetaFileName] = eachMQL
-            endgetquerytime = time.time()
-            #print(MetaFileName, "end to get query, time:", endgetquerytime - startgetquerytime)
-            f.write("get name time: %s s\n" % (str(endgetquerytime - startgetquerytime)))
-            
             with open(MetaDataBinSavePath + MetaFileName + '_Meta_Bin.bin', 'wb+') as ff:
                 pickle.dump(meta_datas, ff)
             #print(MetaFileName, "Done!")

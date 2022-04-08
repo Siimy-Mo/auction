@@ -30,10 +30,11 @@ class Evaluate(object):
         return outputs
 
 
-def GetItemRankListRandomly(AllProductEmb, test_auction_list, ProductEmb, current_product_id):
-
-    RankList = random.sample(test_auction_list.tolist(),50)
-    # RankList = test_auction_list[:50]
+def GetItemRankListRandomly(userDictKey, current_product_id):
+    allUserList = list(userDictKey)[1:]
+    allUserList.pop(current_product_id)
+    RankList = random.sample(allUserList,99) + [current_product_id]
+    random.shuffle(RankList)
     r = np.equal(RankList[:10], np.array([current_product_id] *10)).astype(int)   # 对位
     per_hr10 = hit_rate(r)
     per_mrr10 = mean_reciprocal_rank(r)
@@ -44,58 +45,51 @@ def GetItemRankListRandomly(AllProductEmb, test_auction_list, ProductEmb, curren
     per_mrr20 = mean_reciprocal_rank(r)
     per_ndcg20 = dcg_at_k(r, 20, 1)
 
-    r = np.equal(RankList, np.array([current_product_id] *50)).astype(int)   # 对位
+    r = np.equal(RankList[:50], np.array([current_product_id] *50)).astype(int)   # 对位
     per_hr50 = hit_rate(r)
     per_mrr50 = mean_reciprocal_rank(r)
     per_ndcg50 = dcg_at_k(r, 50, 1)
-    return RankList[:10], per_hr10, per_mrr10, per_ndcg10,     per_hr20, per_mrr20, per_ndcg20,    per_hr50, per_mrr50, per_ndcg50
-        
+    return per_hr10, per_mrr10, per_ndcg10,     per_hr20, per_mrr20, per_ndcg20,    per_hr50, per_mrr50, per_ndcg50
+
 
 # AllProductEmb -> [product_size, emb_size] 
-def GetItemRankList(AllProductEmb, test_auction_list, ProductEmb, current_product_id):
-    # print(test_auction_list,ProductEmb.shape,AllProductEmb.shape,current_product_id)
-    # print(ProductEmb.shape,AllProductEmb.shape,current_product_id)
-    expand_dim_num = np.shape(AllProductEmb)[0] # 100
-    ProductEmb = np.tile(ProductEmb,(expand_dim_num,1))
-    # current_product_id = current_product_id[0]
+def GetItemRankList(AllUserEmb, UserEmb, current_user_id, userDictKey):
+    allUserList = list(userDictKey)[1:]
+    allUserList.pop(current_user_id)
+
+    RankList = random.sample(allUserList,99) + [current_user_id]
+    random.shuffle(RankList)
+    current_user_index = RankList.index(current_user_id)
+
+    userCandidates = tf.nn.embedding_lookup(AllUserEmb, RankList ,name="embedding_item")
+    sess = tf.compat.v1.Session()
+    userCandidatesEmb = sess.run(userCandidates)
+ 
+    expand_dim_num = len(RankList)
+    UserEmb = np.tile(UserEmb,(expand_dim_num,1))
 
     depth = 10
-    RankList_index = np.argsort(np.mean(np.square(ProductEmb-AllProductEmb),axis=1))[0:depth]
-    RankList_10 = []   # RankList 是index
-    for i in range(len(RankList_index)):
-        RankList_10.append(test_auction_list[RankList_index[i]])
-    r = np.equal(RankList_10, np.array([current_product_id] *depth)).astype(int)   # 对位
+    RankList_index = np.argsort(np.mean(np.square(UserEmb-userCandidatesEmb),axis=1))[0:depth]
+    r = np.equal(RankList_index, np.array([current_user_index] *depth)).astype(int)   # 对位
     per_hr10 = hit_rate(r)
     per_mrr10 = mean_reciprocal_rank(r)
     per_ndcg10 = dcg_at_k(r, depth, 1)
-    # 数据监测
-    # if current_product_id == 919:
-    #     print('target pid',current_product_id,'Hit Rate: ',per_hr10)
-    #     print('RankList', RankList)
-    #     print(RankList)
-    #     print('Product Embedding:', np.mean(np.square(ProductEmb-AllProductEmb)))
 
     depth = 20
-    RankList_index = np.argsort(np.mean(np.square(ProductEmb-AllProductEmb),axis=1))[0:depth]
-    RankList = []   # RankList 是index
-    for i in range(len(RankList_index)):
-        RankList.append(test_auction_list[RankList_index[i]])
-    r = np.equal(RankList, np.array([current_product_id] *depth)).astype(int)   # 对位
+    RankList_index = np.argsort(np.mean(np.square(UserEmb-userCandidatesEmb),axis=1))[0:depth]
+    r = np.equal(RankList_index, np.array([current_user_index] *depth)).astype(int)   # 对位
     per_hr20 = hit_rate(r)
     per_mrr20 = mean_reciprocal_rank(r)
     per_ndcg20 = dcg_at_k(r, depth, 1)
 
     depth = 50
-    RankList_index = np.argsort(np.mean(np.square(ProductEmb-AllProductEmb),axis=1))[0:depth]
-    RankList_10 = []   # RankList 是index
-    for i in range(len(RankList_index)):
-        RankList_10.append(test_auction_list[RankList_index[i]])
-    r = np.equal(RankList_10, np.array([current_product_id] *depth)).astype(int)   # 对位
+    RankList_index = np.argsort(np.mean(np.square(UserEmb-userCandidatesEmb),axis=1))[0:depth]
+    r = np.equal(RankList_index, np.array([current_user_index] *depth)).astype(int)   # 对位
     per_hr50 = hit_rate(r)
     per_mrr50 = mean_reciprocal_rank(r)
     per_ndcg50 = dcg_at_k(r, depth, 1)
 
-    return RankList_10, per_hr10, per_mrr10, per_ndcg10,     per_hr20, per_mrr20, per_ndcg20,    per_hr50, per_mrr50, per_ndcg50
+    return per_hr10, per_mrr10, per_ndcg10,     per_hr20, per_mrr20, per_ndcg20,    per_hr50, per_mrr50, per_ndcg50
 
 def FindTheRank(AllProductEmb, ProductEmb, current_product_id):
     expand_dim_num = np.shape(AllProductEmb)[0]

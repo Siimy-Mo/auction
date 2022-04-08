@@ -1,2 +1,2 @@
-bidRecord.csv has user: 7306
-CombineList has user: 7306
+bidRecord_kaggle.csv has user: 627
+CombineList has user: 627

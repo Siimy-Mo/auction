@@ -1,0 +1,1 @@
+read auction data time: 0.2617180347442627 s

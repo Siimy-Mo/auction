@@ -1,5 +1,5 @@
 import operator,glob,pickle,os
-from Data_loader.Bidder import BidderData
+from Data_loader.Auction import AuctionData
 from Data_loader.Data_Util import ReadFileList
 
 def FindTheSameUser(U1, U2):
@@ -93,6 +93,7 @@ def CombineBidDataSetByUser(BidUserBinSavePath, CombineBidUserBinProcessPath, Co
             AllBidUserList.append(CombineUserList)
         
         # 记录用户的競拍序列的最长长度
+        # -> 记录一场拍卖会的竞拍序列最长长度
         MaxProductNum = Getmaxproductnum(AllBidUserList[0])
         
         RUCInfo = ''

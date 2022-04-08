@@ -8,18 +8,15 @@ from collections import Counter
 from tensorflow.python.ops.gen_math_ops import Prod
 seed = 39
 np.random.seed(seed)
-
+RATE = 0.9
 
 class DataSet(object):
     # self, UserData, metaData, neg_sample_num, max_name_len, max_review_len, max_product_len, 
     # savepath, short_term_size, long_term_size = None, weights=True
-    def __init__(self, UserData, metaData,neg_sample_num,max_name_len,max_bid_len,max_product_len,savepath,short_term_size,long_term_size):
-        self.parameters = dict()
-        # UserData: bidderID;asin;reviewText;unixReviewTime;reviewTime
+    def __init__(self, AuctionData, metaData, neg_sample_num, max_auction_bids_len, short_term_size, long_term_size):
+        # AuctionData: bidderID;asin;reviewText;unixReviewTime;reviewTime
         # metaData: asin;name;openbid;auction_duration;unixEndDate;endDate;bidders;bids
-        self.testUserData = dict()
-        self.testmetaData = dict()
-
+        
         # 用户,商品与词统一成v,v与id之间的转换
         self.id_2_v = dict()
         self.v_2_id = dict()
@@ -27,46 +24,24 @@ class DataSet(object):
         # 用户与id之间的转换, 重新编码排序
         self.id_2_user = dict()
         self.user_2_id = dict()
-        
+        self.uid_2_attrs = dict()
+
         # 商品auction与id之间的转换
         self.id_2_product = dict()
         self.product_2_id = dict()
-
-        # 商品auction的duration与id之间的转换
-        self.id_2_duration = dict()
-        self.duration_2_id = dict()
-
-        # 商品auction的openbid与id之间的转换
-        self.id_2_openbid = dict()
-        self.openbid_2_id = dict()
-
-        # 商品auction的type与id之间的转换
-        self.id_2_type = dict()
-        self.type_2_id = dict()
-
-        # 每次auction被哪些人参与了【train期间】，需要计算最大参与人数，用于创建auction emb，这个应该要传给shared emb
-        self.auction2bidders = dict()
+        self.pid_2_attrs = dict()
 
         # 用户,商品与词统一成v,v与id之间的转换
         self.uid = []
         self.pid = []
-        self.userNum = []
-        self.auctionNum = []
-        self.bidNum = []
-        self.product_2_name = dict()
+        self.maxBidderrate, self.minBidderrate = 0,500.0
+        self.maxBidPrice, self.minBidPrice = 0,500.0
 
-        # 商品名称的词都用id表示
-        self.word_2_id = dict()
-        self.id_2_word = dict()
 
         # 时间均值 标准差
         self.timediffAvg = float()
         self.timediffStd = float()
 
-        self.userBids = dict()
-        self.userBidsCount = dict()
-        self.userPurchases = dict()
-        self.bidCoff=set()
         ##########################
         
         # 保存之前的信息
@@ -78,277 +53,173 @@ class DataSet(object):
         self.word_weight = []
 
         self.neg_sample_num = int(neg_sample_num)
-        self.max_name_len = int(max_name_len)
-        self.max_product_len = int(max_product_len)
         self.short_term_size = int(short_term_size)
         self.long_term_size = int(long_term_size)
-        self.max_auction_bids_len = int()
+        self.max_auction_bids_len = int(max_auction_bids_len)   # 一场拍卖会的竞拍次数maximum
 
-        self.neg_sample_num = int(neg_sample_num)
-
-        self.init_dict(UserData, metaData)
+        self.init_dict(AuctionData, metaData)
 
         self.train_data = []
         self.test_data = []
-        self.init_dataset(UserData,metaData,short_term_size,long_term_size)
-
-        # self.timestampList, self.timeintervalList = self.timeDistribution(UserData)
-        
-        for key in self.parameters:
-            print(key,':', self.parameters[key])
+        self.init_dataset(AuctionData, short_term_size,long_term_size)
 
     
     # 统计数据数量，将用户和商品的原id分配成新的uid和pid, vid(vector)，遍历数据后决定test timeline
-    def init_dict(self, UserData, metaData):    # User 是Class， meta is pandas
+    def init_dict(self, AuctionData, metaData):    # User 是Class， meta is pandas
         print('\n------ 1 - 未筛选的数据遍历：生成降序的uid及pid, 选出test的auction'+'\n')
-        ProductSet = set()
-        PurchaseSet = set()
-        words = set()
-        uid = 0
-        vid = 0# 不懂vid拿来干嘛
-        pid = 0
-
-        self.product_2_id['<pad>'] = pid    # 这是啥？
+        uid, pid = 0,0
+        self.id_2_user[uid] = '<pad>'
+        self.user_2_id['<pad>'] = uid
+        self.uid_2_attrs['<pad>'] = [0. for i in range(1)]
         self.id_2_product[pid] = '<pad>'
-        vid += 1
+        self.product_2_id['<pad>'] = pid    # 字典初始化
+        self.pid_2_attrs['<pad>'] = [0. for i in range(7)]
+        uid += 1
         pid += 1
-        for index,row in metaData.iterrows():
-            p = index
-            self.id_2_product[pid] = p
-            self.product_2_id[p] = pid
-            try:
-                '''
-                判断这个product是否有query
-                '''
-                if (len(metaData.loc[p]['nameList']) > 0):
-                    self.product_2_name[p] = metaData.loc[p]['nameList']    # 名字库 ['a p l e', 'i p h o n e', 'x r', '6 4 g b']
-                    words.update(' '.join(metaData.loc[p]['nameList']).split(' ')) # 增加的是 出现过的单个字符，例如['s', 'm', ')']
-            except:
-                pass
-
-            # 更新新的product id
-            self.id_2_v[vid] = p
-            self.v_2_id[p] = vid
-            pid += 1
-            vid += 1
         
-        self.auctionNum.append(pid)
 
-
-        self.v_2_id['<pad>'] = vid
-        self.id_2_v[vid] = '<pad>'
-        self.id_2_user['<pad>'] = uid
-        self.user_2_id[uid] = '<pad>'
-        
-        User_bid_len_list = []  # 统计用户平均拍卖记录
-        User_bid_time = []      # 統計用戶競拍時間。
-        User_purchase_len_list = []
-        uid+=1
-        test_pid_list = []
-        test_uid_list = []
-        for i in range(len(UserData)):
+        uid_purchase_dict = dict()
+        auctionBidLen_list = []
+        auctionBidderLen_list = []
+        for i in range(len(AuctionData)):
             # user id 录入词典
-            self.id_2_user[uid] = UserData[i].bidderID
-            self.user_2_id[UserData[i].bidderID] = uid
-            # bidderID, asin, bidorBuy, unixBidTime, bidTime
-            # 每个用户都唯一而且购买长度大于等于10
-  
-            #更新产品集合
-            pids = []
-            purchase_pids=[]
-            for j in range(len(UserData[i].UserBidList)):
-                asin = UserData[i].UserBidList[j]['asin']
-                pid = self.product_2_id[asin]
+            # 拍卖会需要有2个以上才能进行LSTM
+            if len(AuctionData[i].UserBidList) >=2:
+                self.id_2_product[pid] = AuctionData[i].auctionID
+                self.product_2_id[AuctionData[i].auctionID] = pid
+    
+                # 拍卖会需要有2个以上才能进行LSTM
+                finalPrice = -1
+                bidderSet = set()
+                for j in range(len(AuctionData[i].UserBidList)):
+                    bidderID = AuctionData[i].UserBidList[j]['bidderID']
+                    bidderrate = AuctionData[i].UserBidList[j]['bidderrate']
+                    bid = AuctionData[i].UserBidList[j]['bid']
+                    self.setMinMax(bidderrate, bid)
+                    if bidderID not in self.user_2_id:  # 录入相关的用户id
+                        self.id_2_user[uid] = bidderID
+                        self.user_2_id[bidderID] = uid
+                        self.uid_2_attrs[uid] = bidderrate
+                        uid += 1
 
-                pids.append(pid)
-                User_bid_time.append(UserData[i].UserBidList[j]['unixBidTime'])
-                if UserData[i].UserBidList[j]['bidorBuy'] == 1:
-                    purchase_pids.append(UserData[i].UserBidList[j]['asin'])
+                    if bid > finalPrice: # 记录最后一个出价的user
+                        finalUid = self.user_2_id[bidderID]
+                        finalPrice = bid
+                        finalIndex = j
+                    bidderSet.update([self.user_2_id[bidderID]])
+                # 取出最后一个用户并且加入到属性里,通过GetFinalBid()获得成交用户信息：
+                AuctionData[i].SetFinalBid(finalIndex)
+                if finalUid not in uid_purchase_dict:
+                    uid_purchase_dict[finalUid] = []
+                uid_purchase_dict[finalUid].append(pid)
 
-                # 参与特定auction的bidders名单，用于创建auction emb
-                if UserData[i].UserBidList[j]['test'] == False:
-                    if pid not in self.auction2bidders:
-                        self.auction2bidders[pid]=set()
-                    self.auction2bidders[pid].update([uid])
-                else:
-                    test_pid_list.append(pid)
-                    test_uid_list.append(uid)
+                # 统计1：一场拍卖会的竞拍次数，统计2：一场拍卖会的竞拍者人数
+                auctionBidLen_list.append(len(AuctionData[i].UserBidList))
+                auctionBidderLen_list.append(len(bidderSet))
+                pid += 1
+        # 根据pid数量平分pid -> train:test, pid 分出来
+        self.train_test_split = pid * RATE
+        self.userNum = uid
+        self.auctionNum = pid
+        self.bidNum = np.sum(auctionBidLen_list)
+        print("数据统计:\n")
+        print("用户数量：", uid)
+        print("拍卖物品数量：", pid)
+        print("竞拍记录数量：", self.bidNum)
+        bidsMaxNum_perAuction = np.max(auctionBidLen_list)
+        bidderMaxNum_perAuction = np.max(auctionBidderLen_list)
+        bidsAverageNum_perAuction = np.average(auctionBidLen_list)
+        bidderAverageNum_perAuction = np.average(auctionBidderLen_list)
+        print('拍卖会中最高竞价次数: %i 以及最高竞价人数为：%i'% (bidsMaxNum_perAuction,bidderMaxNum_perAuction))
+        print('拍卖会中平均竞价次数: %i 以及平均竞价人数为：%i'% (bidsAverageNum_perAuction,bidderAverageNum_perAuction))
+
+        self.user_attrs_modification()
+        maxBid = self.maxBidPrice - self.minBidPrice
+
+        # 录入相关product 的基础信息：
+        for index, row in metaData.iterrows():
+            if index in self.product_2_id:
+                pid = self.product_2_id[index]
+                # 处理attrs
+                openbidPrice = (row['openbid']-self.minBidPrice) / maxBid
+                # type duration 转 one-hot,都是012
+                Onehot_type, Onehot_duration = [0.,0.,0.],[0.,0.,0.]
+                Onehot_type[int(float(row['type']))] = 1.0
+                Onehot_duration[int(float(row['auction_duration']))] = 1.0
+                pid_attrs = [openbidPrice]+Onehot_type+Onehot_duration
+                self.pid_2_attrs[pid] = pid_attrs
 
 
-
-            # 每个用户的购买记录
-            ProductSet.update(pids)    # 整理 参与过的拍卖品id
-            PurchaseSet.update(purchase_pids)    # 整理 拍中的拍卖品id
-            self.userBids[uid] = pids
-            self.userBidsCount[uid] = len(UserData[i].UserBidList)
-            self.userPurchases[uid] = purchase_pids
-
-            # 统计用户平均拍卖记录
-            UserBidLen = len(UserData[i].UserBidList)
-            User_bid_len_list.append(UserBidLen)
-            UserPurchaseLen = len(purchase_pids)
-            User_purchase_len_list.append(UserPurchaseLen)
-            uid += 1
-        self.maxbidders = 0
-        for aid in self.auction2bidders:
-            self.auction2bidders[aid] = sorted(self.auction2bidders[aid])
-            length = len(self.auction2bidders[aid])
-            if length> self.maxbidders:
-                self.maxbidders= length
-        print('在train期间，一场拍卖会的最高参与人数为：', self.maxbidders)
-
-        self.userNum.append(uid)      # sum the number of user
-        self.bidNum.append(np.sum(User_bid_len_list))
-        
-        self.average_bid_len = np.mean(User_bid_len_list)
-        self.max_bid_len = np.max(User_bid_len_list)
-        self.max_purchse_len = np.max(User_purchase_len_list)
-        print('(未筛选)總用户數:',uid)
-        print('出现过的商品数量：',len(ProductSet))
-
-        self.parameters['train number'] = 0  # user, auction
-        self.parameters['test number'] = len(set(test_pid_list))
-        self.test_pid_list = test_pid_list
-        print('test dataset中的拍卖会数量 # is {0}，参与人数: {1}'.format( len(set(test_pid_list)), len(set(test_uid_list))))
-
-        print('用户中最高竞价Bid次数:',np.max(User_bid_len_list), '最低竞价次数:',np.min(User_bid_len_list),\
-            '平均竞价次数:',self.average_bid_len)
-        print('用户中最高拍中Purchase次数:',np.max(User_purchase_len_list), '最低拍中次数:',np.min(User_purchase_len_list),\
-            '平均拍中次数:',np.mean(User_purchase_len_list))
-        self.max_unix_time = np.max(User_bid_time)
-        self.min_unix_time = np.min(User_bid_time)
-        print('最大时间差： ',self.max_unix_time - self.min_unix_time)
-
-        # 计算划分数据集的时间平方差，用于之后的均一化。
-        self.timediffAvg = np.average(User_bid_time)
-        self.timediffStd = np.std(User_bid_time)
-        
-        # 统计商品的名字，计算字母权重？？？还有关键词统计
-      
-        self.nes_weight = np.zeros(self.auctionNum[0])
-
-        wi = 0
-        self.word_2_id['<pad>'] = wi
-        self.id_2_word[wi] = '<pad>'
-        wi += 1
-        vid += 1 # from 34342
-        for w in words: # length - 137
-            if (w==''):
-                continue
-            self.word_2_id[w] = wi
-            self.id_2_word[wi] = w
-            self.v_2_id[w] = vid
-            self.id_2_v[vid] = w
-            wi += 1
-            vid += 1
-        self.wordNum = wi
-        self.word_weight = np.zeros(wi)
-        # print('出现过的词类总数(a,b,c,d,1，文字之类的)：',wi)
-
-    def init_dataset(self, UserData, metaData, short_term_size, long_term_size, weights=True):
+    def init_dataset(self, AuctionData, short_term_size, long_term_size, weights=True):
+        # 将数据处理分类成train+test， 根据长度切割
         try:
             self.data_X = []
-            self.init_metaData(UserData, metaData)  # 处理auction的静态特征，还需要修改。
-            
-            for U in range(len(UserData)):
-                uid = self.user_2_id[UserData[U].bidderID]
+            # self.init_metaData(AuctionData, metaData)  # 处理auction的静态特征，还需要修改。
+
+
+            for U in range(len(AuctionData)):
+                if AuctionData[U].auctionID not in self.product_2_id:
+                    continue
+                pid = self.product_2_id[AuctionData[U].auctionID]
+
+                if pid > self.train_test_split:
+                    testSignal = True
+                else:
+                    testSignal = False
+
                 # 每个User的数据，方便以后划分数据集
-                User_Data_X = []
-                UserBidLen = len(UserData[U].UserBidList)
+                Auction_Data_X = []
+                UserBidLen = len(AuctionData[U].UserBidList)
                 
-                # bid list
-                before_pids_pos = []
-                before_pids_time= []
-
-                # the query of purchase list
-
-
+                # bid list of bidders
+                before_uids_pos = []
                 # 向前补充short_term_size-1个信息
+
                 for k in range(0, short_term_size - 1):
-                    before_pids_pos.append([self.product_2_id['<pad>']] + [0,0,0])
+                    before_uids_pos.append(self.product_2_id['<pad>'])# uid+rate
 
                 for l in range(1, UserBidLen):
                     # v(i-short_term_size), v(i - windows_size +1),...,v(i-1)  short项个物品
-                    # self.testmetaData[pid] = [row['type'],row['name'],row['openbid'],row['auction_duration'],row['endDate']]
-                    before_pid_pos = self.product_2_id[UserData[U].UserBidList[l-1]['asin']]
-                    before_pid_pos = [before_pid_pos] + self.pid_2_attrs[before_pid_pos]
-                    before_pid_time = int(UserData[U].UserBidList[l-1]['unixBidTime'])
-                    before_pids_pos.append(before_pid_pos)
-
-                    # query emb -> time emb:
-                    try:
-                        before_pids_time.append((before_pid_time - self.timediffAvg)/self.timediffStd) # 标准化
-                        # before_pids_time.append(np.log(before_pid_time - self.min_unix_time + 1)) # from DeepFM dense features： log(x+1) -> 全是13.0、14.0
-                    except:
-                        print("User:%s Item:%s has not query!\n" % (str(UserData[U].bidderID), str(UserData[U].UserBidList[l-1]['asin'])))
+                    before_uid_pos = self.user_2_id[AuctionData[U].UserBidList[l-1]['bidderID']]
+                    before_uid_bid = AuctionData[U].UserBidList[l-1]['bid']
+                    before_uids_pos.append(before_uid_pos)
 
                     # vi
-                    current_pid_pos = self.product_2_id[UserData[U].UserBidList[l]['asin']]
-                    current_pid_pos = [current_pid_pos] + self.pid_2_attrs[current_pid_pos]   # [pid, a1,a2,a3] 目前三个attr
-                    # current_pid_time = np.log(UserData[U].UserBidList[l]['unixBidTime'] - self.min_unix_time + 1)  # from DeepFM dense features： log(x+1)
-                    current_pid_time = (UserData[U].UserBidList[l]['unixBidTime'] - self.timediffAvg)/self.timediffStd  # 标准化
-                    current_pid_test = UserData[U].UserBidList[l]['test']
-                    if current_pid_pos[0] in self.auction2bidders:
-                        current_pid_bidderList = self.auction2bidders[current_pid_pos[0]]
-                        current_pid_bidderList = [0] * (self.maxbidders - len(current_pid_bidderList)) + current_pid_bidderList # 补充9
-                    else:
-                        current_pid_bidderList = [0] * (self.maxbidders)
+                    current_uid_pos =  self.user_2_id[AuctionData[U].UserBidList[l]['bidderID']]
+                    current_uid_bid =  AuctionData[U].UserBidList[l]['bid']
 
-                    cur_before_pids_pos = before_pids_pos[-short_term_size:]    # 前k個pid
-                    cur_before_pids_time = before_pids_time[-short_term_size:]
+                    # 确认是否是test,test的数据要设置成最后一个用户!
 
-                    # generate long-term sequence
-                    if len(before_pids_pos) < long_term_size:   # 如果拍卖历史小于15，填充对应的0
-                        cur_long_before_pids_pos = [[0,0,0,0]] * (long_term_size - len(before_pids_pos)) + before_pids_pos
-                        cur_long_before_pids_pos_len = len(before_pids_pos) - (short_term_size - 1) # 有四个填充0，所以要-4
-
-                    else:   # 大于15则，取最后的15位
-                        cur_long_before_pids_pos = before_pids_pos[-long_term_size:]
-                        cur_long_before_pids_pos_len = len(cur_long_before_pids_pos)    # 15
-
-                    # 计算时间差
-                    timediffList = [0,0,0,0]+[current_pid_time - i for i in cur_before_pids_time] # 用于short 的时间差，估计不需要了。
-                    cur_before_pids_time_diff = timediffList[-short_term_size:]
+                    cur_before_uids_pos = before_uids_pos[-short_term_size:]    # 前k個pid
 
                     if l < short_term_size:
-                        cur_before_pids_pos_len = l
+                        cur_before_uids_pos_len = l
                     else:
-                        cur_before_pids_pos_len = short_term_size
-                    self.before_pid_pos[str(uid) + "_" + str(current_pid_pos)] = cur_before_pids_pos
-
-
-                    # 处理query emb -> time emb:
-                    if len(before_pids_time) < self.long_term_size:# 如果time emb数量少于15。这里的+不对啊，源没替换。
-                        cur_long_before_time_pos =  [0] * (self.long_term_size - len(before_pids_time)) + before_pids_time # 补充9
+                        cur_before_uids_pos_len = short_term_size
+                    
+                    if testSignal:
+                        if l == UserBidLen-1: # 最后一个user的时候才录入
+                            Auction_Data_X.append((testSignal, pid, current_uid_pos,\
+                                                cur_before_uids_pos,cur_before_uids_pos_len))
                     else:
-                        cur_long_before_time_pos = before_pids_time[-self.long_term_size:]
+                        Auction_Data_X.append((testSignal, pid, current_uid_pos,\
+                                            cur_before_uids_pos,cur_before_uids_pos_len))
 
-                    User_Data_X.append((uid,\
-                                        cur_before_pids_pos,cur_before_pids_pos_len, cur_before_pids_time_diff,  #之前节点的情报
-                                        cur_long_before_pids_pos, cur_long_before_pids_pos_len,cur_long_before_time_pos,  # 添加long term相关情报
-                                        current_pid_pos, current_pid_time, current_pid_test,current_pid_bidderList))# 当前节点的情报。
-                    # (uid, cur_before_pids_pos, cur_before_pids_pos_len, current_pid_pos, cur_long_before_pids_pos, cur_long_before_pids_pos_len, \
-                    #                         Qids_pos, Len_pos, cur_long_before_query_pos, cur_long_before_query_pos_len,\
-                    #                         current_text_ids, current_text_Len, product_len_mask, query_len_mask,cur_long_before_query_len_mask))
-                        
-                self.data_X.append(User_Data_X)
-                
-            self.auctionList = set()
-            # train_auction_list, test_auction_list
+
+                self.data_X.append(Auction_Data_X)
+
             for u in self.data_X:
                 u_len = len(u)# u是list
                 if u_len>0:
                     for i in range(u_len):
-                        auctionid = u[i][-4][0]
-                        testFlag = u[i][-2]
-                        self.auctionList.update([auctionid])
+                        testFlag = u[i][0]
                         if testFlag:
                             self.test_data.append(u[i])
                         else:
                             self.train_data.append(u[i])
             
             print('train BIDS # is {0}, test BIDS # is {1}'.format(len(self.train_data),len(self.test_data)) )
-
+            # train BIDS # is 8453, test BIDS # is 58
 
         except Exception as e:
             s=sys.exc_info()
@@ -361,47 +232,32 @@ class DataSet(object):
             wf = wf / wf.sum()
             self.weights = wf
 
-    # Qids_pos, Len_pos = self.trans_to_ids(Q_text_array_pos[Qi], self.max_name_len)
-    def trans_to_ids(self, query, max_len, weight_cal = True):
-        # 比如：['n e w', 'r s i d e n t', 'e v i l', 'v i l a g e']
-        query = query.split(' ')
-        qids = []
-        for w in query:
-            if w == '':
-                continue
-            qids.append(self.word_2_id[w])
-            # 统计词频
-            if weight_cal:
-                self.word_weight[self.word_2_id[w]-1] += 1
-        for _ in range(len(qids), max_len):
-            qids.append(self.word_2_id['<pad>'])
-        return qids, len(query)
 
-
-    def neg_sample(self, pos_item):
+    def neg_sample(self, pos_user):
         # current_neg_item, current_neg_word = Dataset.neg_sample(current_pid_pos[i][0])
-        # self.auction_attrs[pid] = [pid, type, openbid, duration]
-        neg_item = []
-        neg_word = []
-        neg_sample_list = self.auction_attrs
-        neg_sample_len = len(self.auction_attrs) # 33761
-        if pos_item[0] in self.auction_attrs.keys():
-            pos_item_attr = neg_sample_list.pop(pos_item[0])
+        # uid_pos = [uid, rate] -> uid_2_attrs[] = rate
+        neg_user = []
+        neg_sample_list = self.uid_2_attrs.copy()
+        neg_sample_list.pop('<pad>')
+        neg_sample_len = len(self.uid_2_attrs) # 3371
+        if pos_user in self.uid_2_attrs.keys():
+            pos_user_attr = neg_sample_list.pop(pos_user)
             neg_sample_len -=1
-        neg_item = random.sample(list(neg_sample_list.values()), self.neg_sample_num)
-        return neg_item,neg_word
+        neg_user = random.sample(list(neg_sample_list.keys()), self.neg_sample_num)
 
-    def timeDistribution(self, UserData):
+        return neg_user
+
+    def timeDistribution(self, AuctionData):
         timestampList = []
         intervalList = []
         min = self.parameters['MinMax Unix time'][0]
-        for i in range(len(UserData)):
-            for j in range(1,len(UserData[i].UserBidList)):
-                time = UserData[i].UserBidList[j]['unixBidTime'] - min
+        for i in range(len(AuctionData)):
+            for j in range(1,len(AuctionData[i].UserBidList)):
+                time = AuctionData[i].UserBidList[j]['unixBidTime'] - min
                 timestampList.append(time)
 
                 if j > 1:
-                    interval = time - UserData[i].UserBidList[j-1]['unixBidTime'] + min
+                    interval = time - AuctionData[i].UserBidList[j-1]['unixBidTime'] + min
                     intervalList.append(interval)
         return timestampList, intervalList
 
@@ -496,3 +352,21 @@ class DataSet(object):
             return [uid]
         else:
             return []
+
+    def setMinMax(self, bidderrate, bid):
+        if bidderrate > self.maxBidderrate:
+            self.maxBidderrate = bidderrate
+        if bid > self.maxBidPrice:
+            self.maxBidPrice = bidderrate
+
+        if bidderrate < self.minBidderrate:
+            self.minBidderrate = bidderrate
+        if bid < self.minBidPrice:
+            self.minBidPrice = bidderrate
+
+    def user_attrs_modification(self):
+        maxRate =  self.maxBidderrate - self.minBidderrate
+
+        for uid in self.uid_2_attrs.keys():
+            newRate = (self.uid_2_attrs[uid]-self.minBidderrate) / maxRate
+            self.uid_2_attrs[uid] = newRate

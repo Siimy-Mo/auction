@@ -12,7 +12,7 @@ import random
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 os.environ['CUDA_VISIBLE_DEVICES'] = '1,2,3'
 
-def train(psammodel, Embed, Dataset, params):
+def train(psammodel, Dataset, params):
     filename = "./Performance_PSAM_Model_Windowsize_" + str(params.window_size) + "_Epoch_" +  str(params.epoch) + "_lr_" + str(params.learning_rate) + "_embsize_" + str(params.embed_size) + "_numunit_" + str(params.num_units) + ".txt"
     filename_epoch = "./Performance_PSAM_Model_Windowsize_" + str(params.window_size) + "_Epoch_" +  str(params.epoch) + "_lr_" + str(params.learning_rate) + "_embsize_" + str(params.embed_size) + "_numunit_" + str(params.num_units) + "_each_Epoch" +".txt"
     model_dir = params.model + "Windowsize_" + str(params.window_size) + "_Epoch_" +  str(params.epoch) + "_embsize_" + str(params.embed_size) + "_numunit_" + str(params.num_units) +"/"
@@ -44,7 +44,7 @@ def train(psammodel, Embed, Dataset, params):
         auctionnum = Dataset.auctionNum
         bidnum = Dataset.bidNum
 
-        print(" Users/Auction/Bid:", usernum[0], auctionnum[0], bidnum[0])
+        print(" Users/Auction/Bid:", usernum, auctionnum, bidnum)
         
         avg_loss = tf.compat.v1.placeholder(tf.float32, [], 'loss')
         tf.compat.v1.summary.scalar('loss', avg_loss)
@@ -81,7 +81,6 @@ def train(psammodel, Embed, Dataset, params):
         HR10_list,HR20_list,HR50_list = [],[],[]
         MRR10_list,MRR20_list,MRR50_list = [],[],[]
         NDCG10_list,NDCG20_list,NDCG50_list = [],[],[]
-        allSets_auction_list, auction_testOnly_list = [],[]
         opt_loss_list=[]
 
         total_batch = int(len(train_dataset) / params.batch_size) + 1
@@ -92,28 +91,12 @@ def train(psammodel, Embed, Dataset, params):
         best_MRR10,best_MRR20,best_MRR50 = 0., 0., 0.
         best_NDCG10,best_NDCG20,best_NDCG50 = 0., 0., 0.
 
-        test_dataset = Dataset.test_data
-        test_auction_list_4d= Dataset.testAuction_attrs    # 813
-        test100_list = []
-        test_auction_list = [x for x in test_auction_list_4d]
-        for i in range(len(test_dataset)):# 64 times
-            pos_item = test_dataset[i][-4]
-            withoutTest = []
-            for index in range(len(test_auction_list)):
-                if pos_item[0] != test_auction_list[index][0]:
-                    withoutTest.append(test_auction_list[index])
-            test_list = random.sample(withoutTest,99)+[pos_item]
-            test100_list.append(test_list)
-        # test100_list = [test_auction_list_4d[x] for x in test100_id_list]
-        test100_list = np.array(test100_list)# 还需要attr的array
-
         for e in range(params.epoch):
             train_startpos = 0
             for b in range(total_batch):
-                u_train,bpp_train,sl_train,btf_train,lbpp_train,lbppl_train,lbtp_train,cpp_train,cni_train,cptp_train,cpbl_train \
+                p_train,cu_train,sbu_train,sbul_train,cni_train \
                     = data.Get_next_batch(Dataset, train_dataset, train_startpos, params.batch_size)
-                # print(u_train.shape,bpp_train.shape,sl_train.shape,bpf_train.shape,cpp_train.shape,cni_train.shape,cbpd_train.shape,cbpo_train.shape,bpd_train.shape,bpo_train.shape)
-                _, train_loss, train_pos_loss, train_neg_loss = psammodel.step(session, u_train,bpp_train,sl_train,btf_train,lbpp_train,lbppl_train,lbtp_train,cpp_train,cni_train,cptp_train,cpbl_train)
+                _, train_loss, train_pos_loss, train_neg_loss = psammodel.step(session, p_train,cu_train,sbu_train,sbul_train,cni_train)
                 
                 losses.append(train_loss)
                 pos_losses.append(train_pos_loss)
@@ -126,66 +109,42 @@ def train(psammodel, Embed, Dataset, params):
                 
             print("step: {}|  epoch: {}|  batch: {}|  train_loss: {:.6f}| pos_loss: {:.6f} | neg_loss: {:.6f}".format(step, e, b, train_loss, train_pos_loss, train_neg_loss))
             
+
             # After every epoch
             #test performance
             test_dataset = np.array(Dataset.test_data)
-            # test_auction_list_4d= Dataset.testAuction_attrs    # 813
-            u_test,bpp_test,sl_test,btf_test,lbpp_test,lbppl_test,lbtp_test,cpp_test,cni_test,cpt_test,cpbl_test  \
+            p_test,cu_test,sbu_test,sbul_test,cni_test  \
                 = data.Get_next_batch(Dataset, test_dataset, 0, len(test_dataset))
 
-            #print("Start Performance Test of point model!\n")
-            # test100_list = []
-            # test_auction_list = [x for x in test_auction_list_4d]
-            # for i in range(len(cpp_test)):# 64 times
-            #     pos_item = cpp_test[i].tolist()
-            #     withoutTest = []
-            #     for index in range(len(test_auction_list)):
-            #         if pos_item[0] != test_auction_list[index][0]:
-            #             withoutTest.append(test_auction_list[index])
-            #     test_list = random.sample(withoutTest,99)+[pos_item]
-            #     test100_list.append(test_list)
-            # # test100_list = [test_auction_list_4d[x] for x in test100_id_list]
-            # test100_list = np.array(test100_list)# 还需要attr的array
-
-            bs, itememb, allproductemb,opt_loss = psammodel.step(session, u_test,bpp_test,sl_test,btf_test,lbpp_test,lbppl_test,lbtp_test,cpp_test,cni_test,cpt_test,cpbl_test,test100_list,True)
+            bs, predictuseremb, alluseremb,opt_loss = psammodel.step(session, p_test,cu_test,sbu_test,sbul_test,cni_test,True)
             all_hr_10,all_mrr_10,all_ndcg_10 = 0,0,0
             all_hr_20,all_mrr_20,all_ndcg_20 = 0,0,0
             all_hr_50,all_mrr_50,all_ndcg_50 = 0,0,0
-            repeatSet = set()
-            allSets_auction_count,auction_testOnly_count=0,0
-            for i in range(len(itememb)):
-                testTarget = str(u_test[i]) + '_' + str(cpp_test[i][0])
-                repeatNewSet = set.union(repeatSet, {testTarget})
-                if len(repeatNewSet) == len(repeatSet): pass
-                else:
-                    repeatSet.add(testTarget)
+            for i in range(len(predictuseremb)):
+                # testid： cpp_test[i] test_auction_list
+                per_hr_10,per_mrr_10,per_ndcg_10,per_hr_20,per_mrr_20,per_ndcg_20,per_hr_50,per_mrr_50,per_ndcg_50  \
+                        = me.GetItemRankList(alluseremb, predictuseremb[i], cu_test[i],Dataset.uid_2_attrs.keys())
+                        # = me.GetItemRankListRandomly(Dataset.uid_2_attrs.keys(), cu_test[i])  # 100 选 1
 
-                    # testid： cpp_test[i] test_auction_list
-                    RankList_10, per_hr_10,per_mrr_10,per_ndcg_10,per_hr_20,per_mrr_20,per_ndcg_20,per_hr_50,per_mrr_50,per_ndcg_50  \
-                         = me.GetItemRankList(allproductemb[i,:], test100_list[i][:,0], itememb[i], cpp_test[i][0])
+                all_hr_10 += per_hr_10
+                all_hr_20 += per_hr_20
+                all_hr_50 += per_hr_50
+                all_mrr_10+=per_mrr_10
+                all_mrr_20+=per_mrr_20
+                all_mrr_50+=per_mrr_50
+                all_ndcg_10+=per_ndcg_10
+                all_ndcg_20+=per_ndcg_20
+                all_ndcg_50+=per_ndcg_50
 
-                    all_hr_10 += per_hr_10
-                    all_hr_20 += per_hr_20
-                    all_hr_50 += per_hr_50
-                    all_mrr_10+=per_mrr_10
-                    all_mrr_20+=per_mrr_20
-                    all_mrr_50+=per_mrr_50
-                    all_ndcg_10+=per_ndcg_10
-                    all_ndcg_20+=per_ndcg_20
-                    all_ndcg_50+=per_ndcg_50
-
-                    # 分开追踪Hit
-                    allSets_auction = Dataset.predictionReport(u_test[i],cpp_test[i], RankList_10,e)
-                    allSets_auction_count += allSets_auction
-            hr10 = all_hr_10 / float(len(repeatSet))
-            mrr10 = all_mrr_10 / float(len(repeatSet))
-            ndcg10 = all_ndcg_10 / float(len(repeatSet))
-            hr20 = all_hr_20 / float(len(repeatSet))
-            mrr20 = all_mrr_20 / float(len(repeatSet))
-            ndcg20 = all_ndcg_20 / float(len(repeatSet))
-            hr50 = all_hr_50 / float(len(repeatSet))
-            mrr50 = all_mrr_50 / float(len(repeatSet))
-            ndcg50 = all_ndcg_50 / float(len(repeatSet))
+            hr10 = all_hr_10 / float(len(predictuseremb))
+            mrr10 = all_mrr_10 / float(len(predictuseremb))
+            ndcg10 = all_ndcg_10 / float(len(predictuseremb))
+            hr20 = all_hr_20 / float(len(predictuseremb))
+            mrr20 = all_mrr_20 / float(len(predictuseremb))
+            ndcg20 = all_ndcg_20 / float(len(predictuseremb))
+            hr50 = all_hr_50 / float(len(predictuseremb))
+            mrr50 = all_mrr_50 / float(len(predictuseremb))
+            ndcg50 = all_ndcg_50 / float(len(predictuseremb))
 
             Performance_info = "Performance: EPOCH:{}|HR10: {:.4f}|HR20: {:.4f}|HR50: {:.4f}| MRR10: {:.4f}|MRR20: {:.4f}|MRR50: {:.4f}|NDCG10: {:.4f}|NDCG20: {:.4f}|NDCG50: {:.4f}".format(e, hr10,hr20,hr50, mrr10,mrr20,mrr50, ndcg10,ndcg20,ndcg50)
 
@@ -203,10 +162,7 @@ def train(psammodel, Embed, Dataset, params):
             HR50_list.append(hr50)
             MRR50_list.append(mrr50)
             NDCG50_list.append(ndcg50)
-            allSets_auction_list.append(allSets_auction_count)
-            auction_testOnly_list.append(auction_testOnly_count)
             opt_loss_list.append(opt_loss)
-            print('预测中了：',allSets_auction_count,'Total(user-item):',len(repeatSet))
 
             can_save = False
             if best_HR10 < hr10:
@@ -322,7 +278,7 @@ def main(args):
     Embed = SE.Embedding(Dataset, args)
     psammodel = model_test.Seq(Embed, args)
     # MF = MF_model.MF_layer(Embed, args)
-    train(psammodel, Embed, Dataset, args)
+    train(psammodel, Dataset, args)
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -354,11 +310,11 @@ def parse_args():
 
     parser.add_argument('--user-emb', type=str, default="Short_term",
                         help='Select type of user embedding: Complete, Short_term and Long_term')
-    parser.add_argument('--loss-f', type=str, default="Inner_product",
+    parser.add_argument('--loss-f', type=str, default="MetricLearning",
                         help='Select type of loss function: MetricLearning and Inner_product')
     parser.add_argument('--window-size', type=int, default=5,
                         help='ProNADE Input Data Window size(0:Use all product bought before)')
-    parser.add_argument('--embed-size', type=int, default=128,
+    parser.add_argument('--embed-size', type=int, default=60,
                         help='size of the hidden layer of User, product and query')
     parser.add_argument('--short-term-size', type=int, default=5,
                         help='size of User short-term preference')
@@ -366,7 +322,7 @@ def parse_args():
                         help='size of User lhort-term preference')                
     parser.add_argument('--activation', type=str, default='sigmoid',
                         help='which activation to use: sigmoid|tanh')
-    parser.add_argument('--learning-rate', type=float, default=1e-4,
+    parser.add_argument('--learning-rate', type=float, default=1e-3,
                         help='initial learning rate')
     parser.add_argument('--epoch', type=int, default=200,
                         help='train data epoch')
@@ -386,7 +342,7 @@ def parse_args():
                         help='model selection')
 
     # LSTM-Parameter
-    parser.add_argument('--num-units', type=int, default=128,
+    parser.add_argument('--num-units', type=int, default=60,
                         help='the number of hidden unit in lstm model')                 
     
     # Transformer-Parameter

@@ -1,7 +1,7 @@
-import gzip,json,time,os,pickle,nltk,re
+import time,os,pickle,re
 import numpy as np
 import pandas as pd
-from Data_loader.Bidder import BidderData
+from Data_loader.Auction import AuctionData
 from Data_loader.Data_Util import ReadFileList
 
 def ReadRawDataFile(Filename, Filepath, FileSavePath):
@@ -14,37 +14,23 @@ def ReadRawDataFile(Filename, Filepath, FileSavePath):
     print('BidderRecordDatas:',BidderRecordDatas)
     return BidderRecordDatas
 
-def help_f_cut_stop_word(x):
-    x = x.lower()
-    x = re.sub(r'([;\.~\!@\#\$\%\^\&\*\(\(\)_\+\=\-\[\]\)/\|\'\"\?<>,`\\])','',x)
-    ss = ""
-    words = x.split(' ')
-    stopwords = nltk.corpus.stopwords.words('english') + list(';.~!@#$:%^&*(()_+=-[])/|\'\"?<>,`\\1234567890')
-    for w in words:
-        if (w in stopwords):
-            pass
-        else:
-            ss += ' ' + w
-    return ss.lower().strip()
 
 
-
-
-def UserAggregation(BidData):
-    UserList = []
-    user_index = []
+def itemAggregation(BidData):
+    itemList = []
+    item_index = []
     for index, row in BidData.iterrows():
-        uid = row['bidderID']
-        if uid not in user_index:
-            User = BidderData(row['bidderID'],row['bidderrate'])
-            User.AddBid(row)
-            UserList.append(User)
-            user_index.append(uid)
+        pid = row['asin']
+        if pid not in item_index:
+            Auction = AuctionData(row['asin'])
+            Auction.AddBid(row)
+            itemList.append(Auction)
+            item_index.append(pid)
         else:
-            index = user_index.index(uid)
-            UserList[index].AddBid(row)
+            index = item_index.index(pid)
+            itemList[index].AddBid(row)
 
-    return UserList
+    return itemList
 
 def GetMaxBidLen(data):
     maxnum = 0
@@ -67,7 +53,7 @@ def DoneAllFile(BidDataFilePath, BidDataFileProcessInfoPath, BidDataBinSavepath,
         os.makedirs(BidUserBinSavePath)
     
     FileList = ReadFileList(BidDataFilePath)
-    print(FileList)
+    print('FileList in Review read: ', FileList)
 
     Filename_MaxBidLen_Dict = dict()
     
@@ -91,7 +77,7 @@ def DoneAllFile(BidDataFilePath, BidDataFileProcessInfoPath, BidDataBinSavepath,
 
             #print(Filename, "Start to sort review data")
             startsorttime = time.time()
-            BidDatas = BidDatas.sort_values(by=['bidderID','unixBidTime'], ascending=True)
+            BidDatas = BidDatas.sort_values(by=['asin','bid'], ascending=True) # 竞拍价格从小到大
             endsorttime = time.time()
             #print(Filename, "End to sort review data, time:", endsorttime - startsorttime)
             
@@ -99,7 +85,7 @@ def DoneAllFile(BidDataFilePath, BidDataFileProcessInfoPath, BidDataBinSavepath,
 
             #print(Filename, "Start to Aggregate User")
             startaggregatetime = time.time()
-            UserList = UserAggregation(BidDatas)
+            UserList = itemAggregation(BidDatas)
             Filename_MaxBidLen_Dict[Filename] = int(GetMaxBidLen(UserList))
             endaggregatetime = time.time()
             #print(Filename, "End to Aggregate User, time:", endaggregatetime - startaggregatetime)

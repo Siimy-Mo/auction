@@ -1,2 +1,0 @@
-read auction data time: 18.364057064056396 s
-get name time: 1.39927339553833 s
