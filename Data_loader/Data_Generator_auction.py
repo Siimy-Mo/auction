@@ -7,6 +7,7 @@ import Data_loader.CombineMetaData as CombineMetaData
 import Data_loader.Data_auction as Data
 import tensorflow as tf
 import numpy as np
+import random
 
 
 def PreProcessData(params):
@@ -77,11 +78,9 @@ def Generate_Data(params):
 	
 	# train_startpos += params.batch_size 應該是目前所在位置，+ size， 形成一個範圍。
 def Get_next_batch(Dataset, dataset, startpos, batch_size):
-	# ((uid,cur_before_pids_pos,cur_before_pids_pos_len, 
-	# cur_before_pids_time_diff, cur_before_pids_type, \
-                                        # current_pid_pos, current_pid_time, current_pid_type))
 	dataset_len = len(dataset)
 	CNIList = []
+	test_user_probs = []
 	if (startpos + batch_size) > dataset_len:
 		# Auction_Data_X.append((testSignal, pid,pid_attrs, current_uid_pos,\
         #                                         cur_before_uids_pos,cur_before_uids_pos_len))
@@ -90,10 +89,15 @@ def Get_next_batch(Dataset, dataset, startpos, batch_size):
 		current_uid_pos = [dataset[i,2] for i in range(startpos, dataset_len)]
 		short_before_uid_pos = [dataset[i,3] for i in range(startpos, dataset_len)]
 		short_before_uid_pos_len = [dataset[i,4] for i in range(startpos, dataset_len)]
-
 		for i in range(dataset_len - startpos):
+			user_prob = [0 for i in range(100)]
 			current_neg_user = Dataset.neg_sample(current_uid_pos[i])
+			allusers = [current_uid_pos[i]] + current_neg_user
 			CNIList.append(current_neg_user)
+
+			random.shuffle(allusers)
+			user_prob[allusers.index(current_uid_pos[i])] = 1
+			test_user_probs.append(user_prob)
 			if current_uid_pos[i] in CNIList[i]:
 				print(current_uid_pos[i],CNIList[i])
 	else:
@@ -102,13 +106,19 @@ def Get_next_batch(Dataset, dataset, startpos, batch_size):
 		short_before_uid_pos = [dataset[i,3] for i in range(startpos, startpos + batch_size)]
 		short_before_uid_pos_len = [dataset[i,4] for i in range(startpos, startpos + batch_size)]
 		for i in range(batch_size):
+			user_prob = [0 for i in range(100)]
 			current_neg_user = Dataset.neg_sample(current_uid_pos[i])
+			allusers = [current_uid_pos[i]] + current_neg_user
 			CNIList.append(current_neg_user)
+
+			random.shuffle(allusers)
+			user_prob[allusers.index(current_uid_pos[i])] = 1
+			test_user_probs.append(user_prob)
 			if current_uid_pos[i] in CNIList[i]:
 				print(current_uid_pos[i],CNIList[i])
 
 	return np.array(pids), np.array(current_uid_pos), \
-			np.array(short_before_uid_pos),np.array(short_before_uid_pos_len),np.array(CNIList)
+			np.array(short_before_uid_pos),np.array(short_before_uid_pos_len),np.array(CNIList),np.array(test_user_probs)
 
 # Test
 #if __name__ == "__main__":

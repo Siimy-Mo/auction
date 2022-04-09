@@ -173,16 +173,19 @@ class DataSet(object):
                 
                 # bid list of bidders
                 before_uids_pos = []
+                before_uids_bids = []
                 # 向前补充short_term_size-1个信息
 
                 for k in range(0, short_term_size - 1):
                     before_uids_pos.append(self.product_2_id['<pad>'])# uid+rate
+                    before_uids_bids.append(0.0)# uid+rate
 
                 for l in range(1, UserBidLen):
                     # v(i-short_term_size), v(i - windows_size +1),...,v(i-1)  short项个物品
                     before_uid_pos = self.user_2_id[AuctionData[U].UserBidList[l-1]['bidderID']]
                     before_uid_bid = AuctionData[U].UserBidList[l-1]['bid']
                     before_uids_pos.append(before_uid_pos)
+                    before_uids_bids.append(before_uid_bid)# uid+rate
 
                     # vi
                     current_uid_pos =  self.user_2_id[AuctionData[U].UserBidList[l]['bidderID']]

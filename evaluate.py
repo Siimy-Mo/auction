@@ -51,6 +51,32 @@ def GetItemRankListRandomly(userDictKey, current_product_id):
     per_ndcg50 = dcg_at_k(r, 50, 1)
     return per_hr10, per_mrr10, per_ndcg10,     per_hr20, per_mrr20, per_ndcg20,    per_hr50, per_mrr50, per_ndcg50
 
+def GetItemRankList_innerProduct(probRank,current_id):
+    trueIndex = list(current_id).index(1)
+    depth = 10
+    RankList_index = np.argsort(-probRank)[0:depth]
+    # print(RankList_index)
+    r = np.equal(RankList_index, np.array([trueIndex] *depth)).astype(int)   # 对位
+    per_hr10 = hit_rate(r)
+    per_mrr10 = mean_reciprocal_rank(r)
+    per_ndcg10 = dcg_at_k(r, depth, 1)
+
+    depth = 20
+    RankList_index = np.argsort(-probRank)[0:depth]
+    r = np.equal(RankList_index, np.array([trueIndex] *depth)).astype(int)   # 对位
+    per_hr20 = hit_rate(r)
+    per_mrr20 = mean_reciprocal_rank(r)
+    per_ndcg20 = dcg_at_k(r, depth, 1)
+
+    depth = 50
+    RankList_index = np.argsort(-probRank)[0:depth]
+    r = np.equal(RankList_index, np.array([trueIndex] *depth)).astype(int)   # 对位
+    per_hr50 = hit_rate(r)
+    per_mrr50 = mean_reciprocal_rank(r)
+    per_ndcg50 = dcg_at_k(r, depth, 1)
+
+    return per_hr10, per_mrr10, per_ndcg10,     per_hr20, per_mrr20, per_ndcg20,    per_hr50, per_mrr50, per_ndcg50
+
 
 # AllProductEmb -> [product_size, emb_size] 
 def GetItemRankList(AllUserEmb, UserEmb, current_user_id, userDictKey):

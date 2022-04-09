@@ -9,12 +9,12 @@ seed = 42
 np.random.seed(seed)
 tf.compat.v1.set_random_seed(seed)
 
-
-MAX_LEN = 5
+UW=0.08
+IW=0.06
+MAX_LEN = 10
 N_LAYER = 3
 N_HEAD = 4
 DROP_RATE = 0.1
-MFSIZE = 60
 
 class MultiHead(keras.layers.Layer):
     def __init__(self, n_head, model_dim, drop_rate):
@@ -284,6 +284,7 @@ class Seq(object):
         self.short_term_before_user_id = tf.compat.v1.placeholder(tf.int32, shape=[None,None], name='short_term_before_user_id')
         self.short_term_before_user_len = tf.compat.v1.placeholder(tf.int32, shape=(None), name='short_term_before_user_len')
 
+        self.test_user_prob = tf.compat.v1.placeholder(tf.float32, shape=(None), name='test_user_probability')
 
         self.num_units = params.num_units
 
@@ -299,34 +300,50 @@ class Seq(object):
         self.pos_user_emb = Embed.GetUserEmbedding(self.current_user_id)
         self.neg_user_emb = Embed.GetUserEmbedding(self.current_user_neg_id)
 
-        # self.neg_user_emb = Embed.GetUserEmbedding(self.short_term_before_user_id)
+        #### MF for co-emb
+        self.MFitems = tf.tile(tf.expand_dims(self.item_ID_emb, axis=1),[1,100,1])  # 64 100 120
+        self.MFusers = tf.tile(tf.expand_dims(self.pos_user_emb, axis=1),[1,1,1])   # 64 1 120
+        self.MFusers = tf.concat([self.MFusers, self.neg_user_emb],1)   # 64 100 120
+        self.InferInputMF=tf.multiply(self.MFusers, self.MFitems)   # 64 100 120
+        infer=tf.reduce_sum(self.InferInputMF, 2, name="inference") # 应该为64 100, prob
+        self.MF_output = infer
+        # regularizer = 5.32??? 是一位小数
+        regularizer = tf.add(UW*tf.nn.l2_loss(self.MFusers), IW*tf.nn.l2_loss(self.MFitems), name="regularizer")
+        
+        global_step = tf.compat.v1.train.get_global_step()
+    
+        self.prob_batch = self.test_user_prob  # 64 1 120
+        # cost = 31 也是一位小数
+        cost_l2 = tf.nn.l2_loss(tf.subtract(infer, self.prob_batch))# 构思一个？
+        self.test= cost_l2  # 5.32???
+        cost = tf.add(cost_l2, regularizer)
+        self.opt_loss = cost
+        self.train_op = tf.compat.v1.train.AdamOptimizer(params.learning_rate).minimize(cost, global_step=global_step)
+        #### MF for co-emb
+
+
 
         # 3373
-        self.short_term_user_emb = Embed.GetUserEmbedding(self.short_term_before_user_id)
-        # self.InferInputMF=tf.multiply(self.transformer_INPUT_k_v, self.transformer_INPUT_q)
-
-        # # self.short_term_lstm_outputs,_ = tf.nn.dynamic_rnn(self.short_term_lstm_layer, self.short_term_td_outputs, dtype="float32")  # 加type属性
-        # self.short_term_td_outputs = tf.nn.softmax(tf.multiply(self.beforeproductemb, self.timeDecay)) #考虑时间差的影响, 64 5 128
-
         # Define Query-Based Attention LSTM for User's short-term inference
-        self.short_term_lstm_layer = tf.compat.v1.nn.rnn_cell.LSTMCell(self.num_units * 2, forget_bias=1)
-        self.short_term_lstm_outputs,_ = tf.compat.v1.nn.dynamic_rnn(self.short_term_lstm_layer, self.short_term_user_emb, dtype="float32") 
+        # self.short_term_user_emb = Embed.GetUserEmbedding(self.short_term_before_user_id)
+        # self.short_term_lstm_layer = tf.compat.v1.nn.rnn_cell.LSTMCell(self.num_units * 2, forget_bias=1)
+        # self.short_term_lstm_outputs,_ = tf.compat.v1.nn.dynamic_rnn(self.short_term_lstm_layer, self.short_term_user_emb, dtype="float32") 
         # 64 5 256
 
         # Transformer 一些默认设定：
-        model_dim = params.embed_size*2
-        max_len = MAX_LEN
-        n_layer = N_LAYER
-        n_head = N_HEAD
-        drop_rate = DROP_RATE
-        self.embed = PositionEmbedding(max_len, model_dim)
-        self.encoder = Encoder(n_head, model_dim, drop_rate, n_layer)
+        # model_dim = params.embed_size*2
+        # max_len = MAX_LEN
+        # n_layer = N_LAYER
+        # n_head = N_HEAD
+        # drop_rate = DROP_RATE
+        # self.embed = PositionEmbedding(max_len, model_dim)
+        # self.encoder = Encoder(n_head, model_dim, drop_rate, n_layer)
         
-        x_embed = self.embed(self.short_term_user_emb)# x = 64,5,128 , y=1 5 128 和64 128不兼容 T
-        pad_mask = self._pad_mask(self.short_term_before_user_id)    # 64,1,1,5
-        self.mask = pad_mask# 64 1 1 5 120???
-        self.encoded_z = self.encoder.call(x_embed, x_embed, training=False, mask=pad_mask ) #64,5,128 
-        self.transformer_output = self.encoded_z[:, -1,:]
+        # x_embed = self.embed(self.short_term_user_emb)# x = 64,5,128 , y=1 5 128 和64 128不兼容 T
+        # pad_mask = self._pad_mask(self.short_term_before_user_id)    # 64,1,1,5
+        # self.mask = pad_mask# 64 1 1 5 120???
+        # self.encoded_z = self.encoder.call(x_embed, x_embed, training=False, mask=pad_mask ) #64,5,128 
+        # self.transformer_output = self.encoded_z[:, -1,:]
         # # self.short_term_before_productemb = Embed.GetProductEmbedding(self.short_term_before_product_id)   #原来的productemb，64 5 128
         # self.long_term_before_productemb = Embed.GetProductEmbedding(self.long_term_before_product_id)   #原来的productemb，64 5 128
  
@@ -376,13 +393,13 @@ class Seq(object):
         # elif params.user_emb == "Short_term":
         # # if params.user_emb == "Short_term":
 
-        self.user_short_term_emb = tf.reduce_sum(self.short_term_lstm_outputs,axis=1)
+        # self.user_short_term_emb = tf.reduce_sum(self.short_term_lstm_outputs,axis=1)
         # self.short_term_combine_weights=tf.Variable(tf.random.normal([2 * params.embed_size, params.embed_size]))
         # self.short_term_combine_bias=tf.Variable(tf.random.normal([params.embed_size]))
         # self.short_term_useremb = tf.tanh(tf.matmul(self.user_short_term_emb, self.short_term_combine_weights) + self.short_term_combine_bias)  # short-term preference
 
-        
-        self.useremb = self.transformer_output
+    
+        # self.useremb = self.transformer_output
         #     # self.useremb = self.user_short_term_emb #without user emb
         # elif params.user_emb == "Long_term":
         #     self.useremb = self.long_term_useremb
@@ -418,29 +435,31 @@ class Seq(object):
 
         # # loss func还有另外两个！！！useremb+query -> +time [ 64 128]
 
-        if params.loss_f == "Inner_product":
-            self.opt_loss, self.pos_loss, self.neg_loss = Inner_product(self.useremb, self.pos_user_emb, self.neg_user_emb, params.neg_sample_num)
-        elif params.loss_f == "MetricLearning":
-            self.opt_loss, self.pos_loss, self.neg_loss = Loss_F(self.useremb, self.pos_user_emb, self.neg_user_emb, params.neg_sample_num)
-        else:
-            self.opt_loss, self.pos_loss, self.neg_loss = Pairwise_Loss_F(self.useremb, self.pos_user_emb, self.neg_user_emb, params.neg_sample_num)
-        reg_losses = tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.REGULARIZATION_LOSSES)
-        self.opt_loss = self.opt_loss + sum(reg_losses)
+        # if params.loss_f == "Inner_product":
+        #     self.opt_loss, self.pos_loss, self.neg_loss = Inner_product(self.useremb, self.pos_user_emb, self.neg_user_emb, params.neg_sample_num)
+        # elif params.loss_f == "MetricLearning":
+        #     self.opt_loss, self.pos_loss, self.neg_loss = Loss_F(self.useremb, self.pos_user_emb, self.neg_user_emb, params.neg_sample_num)
+        # else:
+        #     self.opt_loss, self.pos_loss, self.neg_loss = Pairwise_Loss_F(self.useremb, self.pos_user_emb, self.neg_user_emb, params.neg_sample_num)
+    
+        # regularizer = tf.add(UW*tf.nn.l2_loss(ul1mf), IW*tf.nn.l2_loss(il1mf), name="regularizer")
+
+        # self.opt_loss = tf.nn.l2_loss(tf.subtract(self.useremb, self.pos_user_emb))
         
-        
-        
-        # Optimiser
-        step = tf.Variable(0, trainable=False)
-        
-        self.opt = gradients(
-            opt=tf.compat.v1.train.AdamOptimizer(learning_rate=params.learning_rate),
-            loss=self.opt_loss,
-            vars=tf.compat.v1.trainable_variables(),
-            step=step
-        )
+        # reg_losses = tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.REGULARIZATION_LOSSES)
+        # self.opt_loss = self.opt_loss + sum(reg_losses)
+
+        # # Optimiser
+        # step = tf.Variable(0, trainable=False)
+        # self.opt = gradients(
+        #     opt=tf.compat.v1.train.AdamOptimizer(learning_rate=params.learning_rate),
+        #     loss=self.opt_loss,
+        #     vars=tf.compat.v1.trainable_variables(),
+        #     step=step
+        # )
 
     # ((uid, cur_before_pids_pos,cur_before_pids_pos_len, cur_before_pids_flag, cur_before_pids_attr,current_pid_pos,cur_pids_attr))
-    def step(self, session, pid, cuid, sbu, sbul, cnuid, testmode = False):
+    def step(self, session, pid, cuid, sbu, sbul, cnuid,tprob, testmode = False):
         # p,p_attrs_test,cu_test,sbu_test,sbul_test,cni_test
         input_feed = {}
         input_feed[self.auctionID.name] = pid   # 64 606
@@ -451,21 +470,26 @@ class Seq(object):
         input_feed[self.short_term_before_user_id.name] = sbu# 64 5 3
         input_feed[self.short_term_before_user_len.name] = sbul # 64
 
+        input_feed[self.test_user_prob.name] = tprob
         if testmode == False:
-            output_feed = [self.opt, self.opt_loss, self.pos_loss, self.neg_loss]
+            # output_feed = [self.opt, self.opt_loss, self.pos_loss, self.neg_loss]
+            output_feed = [self.train_op, self.opt_loss] # MF 的error
         else:
             #u_plus_q = self.useremb + self.queryemb
-            u_plus_q = self.useremb
-            output_feed = [tf.shape(self.auctionID)[0], u_plus_q, self.test_useremb,self.opt_loss]
+            # u_plus_q = self.useremb
+            # output_feed = [tf.shape(self.auctionID)[0], u_plus_q, self.test_useremb,self.opt_loss]
+
+            # MF 的error
+            output_feed = [tf.shape(self.auctionID)[0], self.MF_output, self.train_op]
             
         outputs = session.run(output_feed, input_feed)
 
-        short_feed = [self.item_ID_emb ]
-        short = session.run(short_feed, input_feed)
-        for i in range(len(short)):
-            print("__________________________________")
-            print(short[i])
-            print(short[i].shape)
+        # short_feed = [ self.test ,self.prob_batch]
+        # short = session.run(short_feed, input_feed)
+        # for i in range(len(short)):
+        #     print("__________________________________")
+        #     print(short[i])
+        #     print(short[i].shape)
 
         return outputs
         # return short

@@ -94,10 +94,13 @@ def train(psammodel, Dataset, params):
         for e in range(params.epoch):
             train_startpos = 0
             for b in range(total_batch):
-                p_train,cu_train,sbu_train,sbul_train,cni_train \
+                p_train,cu_train,sbu_train,sbul_train,cni_train,tp_train \
                     = data.Get_next_batch(Dataset, train_dataset, train_startpos, params.batch_size)
-                _, train_loss, train_pos_loss, train_neg_loss = psammodel.step(session, p_train,cu_train,sbu_train,sbul_train,cni_train)
-                
+                # _, train_loss, train_pos_loss, train_neg_loss = psammodel.step(session, p_train,cu_train,sbu_train,sbul_train,cni_train)
+                # MF output
+                _, train_loss = psammodel.step(session, p_train,cu_train,sbu_train,sbul_train,cni_train,tp_train)
+                train_pos_loss, train_neg_loss = 0, 0
+
                 losses.append(train_loss)
                 pos_losses.append(train_pos_loss)
                 neg_losses.append(train_neg_loss)
@@ -113,19 +116,26 @@ def train(psammodel, Dataset, params):
             # After every epoch
             #test performance
             test_dataset = np.array(Dataset.test_data)
-            p_test,cu_test,sbu_test,sbul_test,cni_test  \
+            p_test,cu_test,sbu_test,sbul_test,cni_test,tp_test  \
                 = data.Get_next_batch(Dataset, test_dataset, 0, len(test_dataset))
 
-            bs, predictuseremb, alluseremb,opt_loss = psammodel.step(session, p_test,cu_test,sbu_test,sbul_test,cni_test,True)
+            # bs, predictuseremb, alluseremb,opt_loss = psammodel.step(session, p_test,cu_test,sbu_test,sbul_test,cni_test,True)
+            # MF output
+            bs, predictProb,opt_loss = psammodel.step(session, p_test,cu_test,sbu_test,sbul_test,cni_test,tp_test,True)
+            
             all_hr_10,all_mrr_10,all_ndcg_10 = 0,0,0
             all_hr_20,all_mrr_20,all_ndcg_20 = 0,0,0
             all_hr_50,all_mrr_50,all_ndcg_50 = 0,0,0
-            for i in range(len(predictuseremb)):
+            for i in range(len(predictProb)):
                 # testid： cpp_test[i] test_auction_list
-                per_hr_10,per_mrr_10,per_ndcg_10,per_hr_20,per_mrr_20,per_ndcg_20,per_hr_50,per_mrr_50,per_ndcg_50  \
-                        = me.GetItemRankList(alluseremb, predictuseremb[i], cu_test[i],Dataset.uid_2_attrs.keys())
+                # per_hr_10,per_mrr_10,per_ndcg_10,per_hr_20,per_mrr_20,per_ndcg_20,per_hr_50,per_mrr_50,per_ndcg_50  \
+                #         = me.GetItemRankList(alluseremb, predictuseremb[i], cu_test[i],Dataset.uid_2_attrs.keys())
                         # = me.GetItemRankListRandomly(Dataset.uid_2_attrs.keys(), cu_test[i])  # 100 选 1
-
+                
+                # MF output 
+                per_hr_10,per_mrr_10,per_ndcg_10,per_hr_20,per_mrr_20,per_ndcg_20,per_hr_50,per_mrr_50,per_ndcg_50  \
+                        = me.GetItemRankList_innerProduct(predictProb[i],tp_test[i])
+                        
                 all_hr_10 += per_hr_10
                 all_hr_20 += per_hr_20
                 all_hr_50 += per_hr_50
@@ -136,15 +146,15 @@ def train(psammodel, Dataset, params):
                 all_ndcg_20+=per_ndcg_20
                 all_ndcg_50+=per_ndcg_50
 
-            hr10 = all_hr_10 / float(len(predictuseremb))
-            mrr10 = all_mrr_10 / float(len(predictuseremb))
-            ndcg10 = all_ndcg_10 / float(len(predictuseremb))
-            hr20 = all_hr_20 / float(len(predictuseremb))
-            mrr20 = all_mrr_20 / float(len(predictuseremb))
-            ndcg20 = all_ndcg_20 / float(len(predictuseremb))
-            hr50 = all_hr_50 / float(len(predictuseremb))
-            mrr50 = all_mrr_50 / float(len(predictuseremb))
-            ndcg50 = all_ndcg_50 / float(len(predictuseremb))
+            hr10 = all_hr_10 / float(len(predictProb))
+            mrr10 = all_mrr_10 / float(len(predictProb))
+            ndcg10 = all_ndcg_10 / float(len(predictProb))
+            hr20 = all_hr_20 / float(len(predictProb))
+            mrr20 = all_mrr_20 / float(len(predictProb))
+            ndcg20 = all_ndcg_20 / float(len(predictProb))
+            hr50 = all_hr_50 / float(len(predictProb))
+            mrr50 = all_mrr_50 / float(len(predictProb))
+            ndcg50 = all_ndcg_50 / float(len(predictProb))
 
             Performance_info = "Performance: EPOCH:{}|HR10: {:.4f}|HR20: {:.4f}|HR50: {:.4f}| MRR10: {:.4f}|MRR20: {:.4f}|MRR50: {:.4f}|NDCG10: {:.4f}|NDCG20: {:.4f}|NDCG50: {:.4f}".format(e, hr10,hr20,hr50, mrr10,mrr20,mrr50, ndcg10,ndcg20,ndcg50)
 
@@ -316,13 +326,13 @@ def parse_args():
                         help='ProNADE Input Data Window size(0:Use all product bought before)')
     parser.add_argument('--embed-size', type=int, default=60,
                         help='size of the hidden layer of User, product and query')
-    parser.add_argument('--short-term-size', type=int, default=5,
+    parser.add_argument('--short-term-size', type=int, default=10,
                         help='size of User short-term preference')
     parser.add_argument('--long-term-size', type=int, default=15,
                         help='size of User lhort-term preference')                
     parser.add_argument('--activation', type=str, default='sigmoid',
                         help='which activation to use: sigmoid|tanh')
-    parser.add_argument('--learning-rate', type=float, default=1e-3,
+    parser.add_argument('--learning-rate', type=float, default=1e-4,
                         help='initial learning rate')
     parser.add_argument('--epoch', type=int, default=200,
                         help='train data epoch')
@@ -330,7 +340,7 @@ def parse_args():
                         help='the batch size')
     parser.add_argument('--validation-batch-size', type=int, default=64,
                         help='the batch size of validation')              
-    parser.add_argument('--neg-sample-num', type=int, default=5, # 原来5
+    parser.add_argument('--neg-sample-num', type=int, default=99, # 原来5
                         help='the number of negative sample')
     parser.add_argument('--log-every', type=int, default=10,
                         help='print loss after this many steps')
