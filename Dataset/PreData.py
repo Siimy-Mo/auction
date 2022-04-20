@@ -85,6 +85,20 @@ def main():
     # 购买(buy)物品数量 直方图
     df_buy = df_kaggle[df_kaggle['bid'] == df_kaggle['price']] # shape = 596, with condition: bid = price
     df = df_buy[['bidderID','asin']].groupby('bidderID').count().sort_values(by='asin')   # shape = 571, output中的asin意味着此user参加过的items数量
+    df_bidder = df[df['asin']>1]
+    bidderList = df_bidder.index.tolist()
+
+    keep_index = []
+    for index,row in df_buy.iterrows():
+        uid = row['bidderID']
+        if uid in bidderList:
+            keep_index.append(index)
+    df_buy2bidder = df_buy.loc[keep_index,:].reset_index()
+
+    df = df_buy2bidder[['bidderID','type']].drop_duplicates().groupby('type').count()
+    print(df)
+    df = df_buy2bidder[['bidderID','bidderrate','type']].drop_duplicates()
+    print(df)
     df['bidderQuality'] = df.index.to_frame()
     df = df.groupby('asin').count()
     x, y = df.index.tolist(), df.values.tolist()

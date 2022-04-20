@@ -1,4 +1,5 @@
 import Data_loader.Data_Generator_auction as data
+import Data_loader.Data_Generator_kaggle as kaggle
 import Model.SharedEmbedding as SE
 import Model.model_test as model_test
 import os,json,argparse
@@ -43,8 +44,10 @@ def train(psammodel, Dataset, params):
         usernum = Dataset.userNum
         auctionnum = Dataset.auctionNum
         bidnum = Dataset.bidNum
+        
 
         print(" Users/Auction/Bid:", usernum, auctionnum, bidnum)
+        print(" train_test_split_line:", Dataset.train_test_split)
         
         avg_loss = tf.compat.v1.placeholder(tf.float32, [], 'loss')
         tf.compat.v1.summary.scalar('loss', avg_loss)
@@ -94,47 +97,46 @@ def train(psammodel, Dataset, params):
         for e in range(params.epoch):
             train_startpos = 0
             for b in range(total_batch):
-                p_train,cu_train,sbu_train,sbul_train,cni_train,tp_train \
+                p_train,cu_train,cuhis_train,cuBT_train,sbu_train,sbuhis_train,sbuBT_train,sbul_train,cni_train,testid_train,tp_train \
                     = data.Get_next_batch(Dataset, train_dataset, train_startpos, params.batch_size)
-                # _, train_loss, train_pos_loss, train_neg_loss = psammodel.step(session, p_train,cu_train,sbu_train,sbul_train,cni_train)
+                _, train_loss, train_pos_loss, train_neg_loss = psammodel.step(session, p_train,cu_train,cuhis_train,cuBT_train,sbu_train,sbuhis_train,sbuBT_train,sbul_train,cni_train,testid_train,tp_train)
                 # MF output
-                _, train_loss = psammodel.step(session, p_train,cu_train,sbu_train,sbul_train,cni_train,tp_train)
-                train_pos_loss, train_neg_loss = 0, 0
+                # _, train_loss = psammodel.step(session, p_train,cu_train,cuBT_train,sbu_train,sbuBT_train,sbul_train,cni_train,testid_train,tp_train)
 
                 losses.append(train_loss)
                 pos_losses.append(train_pos_loss)
                 neg_losses.append(train_neg_loss)
                 train_startpos += params.batch_size
                 step += 1
-                #print(train_startpos)
-                #if step % params.log_every == 0 and step != 0:
-                    #print("step: {}|  epoch: {}|  batch: {}|  train_loss: {:.6f}| pos_loss: {:.6f} | neg_loss: {:.6f}".format(step, e, b, train_loss, train_pos_loss, train_neg_loss))
-                
+                # print(train_startpos)
+                # if step % params.log_every == 0 and step != 0:
+                #     print("step: {}|  epoch: {}|  batch: {}|  train_loss: {:.6f}| pos_loss: {:.6f} | neg_loss: {:.6f}".format(step, e, b, train_loss, train_pos_loss, train_neg_loss))
             print("step: {}|  epoch: {}|  batch: {}|  train_loss: {:.6f}| pos_loss: {:.6f} | neg_loss: {:.6f}".format(step, e, b, train_loss, train_pos_loss, train_neg_loss))
+            # print("step: {}|  epoch: {}|  batch: {}|  train_loss: {:.6f}".format(step, e, b, train_loss, train_pos_loss, train_neg_loss))
             
 
             # After every epoch
             #test performance
             test_dataset = np.array(Dataset.test_data)
-            p_test,cu_test,sbu_test,sbul_test,cni_test,tp_test  \
+            p_test,cu_test,cuhis_test,cuBT_test,sbu_test,sbuhis_test,sbuBT_test,sbul_test,cni_test,testid_test,tp_test  \
                 = data.Get_next_batch(Dataset, test_dataset, 0, len(test_dataset))
 
-            # bs, predictuseremb, alluseremb,opt_loss = psammodel.step(session, p_test,cu_test,sbu_test,sbul_test,cni_test,True)
+            bs, predictuseremb, alluseremb,opt_loss = psammodel.step(session, p_test,cu_test,cuhis_test,cuBT_test,sbu_test,sbuhis_test,sbuBT_test,sbul_test,cni_test,testid_test,tp_test,True)
             # MF output
-            bs, predictProb,opt_loss = psammodel.step(session, p_test,cu_test,sbu_test,sbul_test,cni_test,tp_test,True)
+            # bs, predictProb,opt_loss = psammodel.step(session, p_test,cu_test,cuhis_test,cuBT_test,sbu_test,sbuhis_test,sbuBT_test,sbul_test,cni_test,testid_test,tp_test,True)
             
             all_hr_10,all_mrr_10,all_ndcg_10 = 0,0,0
             all_hr_20,all_mrr_20,all_ndcg_20 = 0,0,0
             all_hr_50,all_mrr_50,all_ndcg_50 = 0,0,0
-            for i in range(len(predictProb)):
+            for i in range(len(alluseremb)):
                 # testid： cpp_test[i] test_auction_list
-                # per_hr_10,per_mrr_10,per_ndcg_10,per_hr_20,per_mrr_20,per_ndcg_20,per_hr_50,per_mrr_50,per_ndcg_50  \
-                #         = me.GetItemRankList(alluseremb, predictuseremb[i], cu_test[i],Dataset.uid_2_attrs.keys())
+                per_hr_10,per_mrr_10,per_ndcg_10,per_hr_20,per_mrr_20,per_ndcg_20,per_hr_50,per_mrr_50,per_ndcg_50  \
+                        = me.GetItemRankList(alluseremb[i], predictuseremb[i], cu_test[i],testid_test[i])
                         # = me.GetItemRankListRandomly(Dataset.uid_2_attrs.keys(), cu_test[i])  # 100 选 1
                 
                 # MF output 
-                per_hr_10,per_mrr_10,per_ndcg_10,per_hr_20,per_mrr_20,per_ndcg_20,per_hr_50,per_mrr_50,per_ndcg_50  \
-                        = me.GetItemRankList_innerProduct(predictProb[i],tp_test[i])
+                # per_hr_10,per_mrr_10,per_ndcg_10,per_hr_20,per_mrr_20,per_ndcg_20,per_hr_50,per_mrr_50,per_ndcg_50  \
+                #         = me.GetItemRankList_innerProduct(predictProb[i],tp_test[i])
                         
                 all_hr_10 += per_hr_10
                 all_hr_20 += per_hr_20
@@ -146,15 +148,15 @@ def train(psammodel, Dataset, params):
                 all_ndcg_20+=per_ndcg_20
                 all_ndcg_50+=per_ndcg_50
 
-            hr10 = all_hr_10 / float(len(predictProb))
-            mrr10 = all_mrr_10 / float(len(predictProb))
-            ndcg10 = all_ndcg_10 / float(len(predictProb))
-            hr20 = all_hr_20 / float(len(predictProb))
-            mrr20 = all_mrr_20 / float(len(predictProb))
-            ndcg20 = all_ndcg_20 / float(len(predictProb))
-            hr50 = all_hr_50 / float(len(predictProb))
-            mrr50 = all_mrr_50 / float(len(predictProb))
-            ndcg50 = all_ndcg_50 / float(len(predictProb))
+            hr10 = all_hr_10 / float(len(alluseremb))
+            mrr10 = all_mrr_10 / float(len(alluseremb))
+            ndcg10 = all_ndcg_10 / float(len(alluseremb))
+            hr20 = all_hr_20 / float(len(alluseremb))
+            mrr20 = all_mrr_20 / float(len(alluseremb))
+            ndcg20 = all_ndcg_20 / float(len(alluseremb))
+            hr50 = all_hr_50 / float(len(alluseremb))
+            mrr50 = all_mrr_50 / float(len(alluseremb))
+            ndcg50 = all_ndcg_50 / float(len(alluseremb))
 
             Performance_info = "Performance: EPOCH:{}|HR10: {:.4f}|HR20: {:.4f}|HR50: {:.4f}| MRR10: {:.4f}|MRR20: {:.4f}|MRR50: {:.4f}|NDCG10: {:.4f}|NDCG20: {:.4f}|NDCG50: {:.4f}".format(e, hr10,hr20,hr50, mrr10,mrr20,mrr50, ndcg10,ndcg20,ndcg50)
 
@@ -195,6 +197,7 @@ def train(psammodel, Dataset, params):
 
         with open(filename, 'a+') as f:
             bestinfo = "Best Performance: HR10: {:.4f}|HR20: {:.4f}|HR50: {:.4f}| MRR10: {:.4f}|MRR20: {:.4f}|MRR50: {:.4f}|NDCG10: {:.4f}|NDCG20: {:.4f}|NDCG50: {:.4f}".format(best_HR10,best_HR20,best_HR50, best_MRR10,best_MRR20,best_MRR50, best_NDCG10,best_NDCG20,best_NDCG50)
+            print(bestinfo)
             f.write(bestinfo+'\n')
     # for i in range(len(u_test)):
     #     if hitList.count(u_test[i]) >0:
@@ -284,7 +287,8 @@ def main(args):
 
     with open(os.path.join(args.model, 'params.json'), 'w') as f:
         f.write(json.dumps(vars(args)))
-    Dataset = data.Generate_Data(args) # 根據時間分類，在Data中，修改DataSet Class
+    # Dataset = data.Generate_Data(args) # 根據時間分類，在Data中，修改DataSet Class
+    Dataset = kaggle.Generate_Data(args)
     Embed = SE.Embedding(Dataset, args)
     psammodel = model_test.Seq(Embed, args)
     # MF = MF_model.MF_layer(Embed, args)
@@ -320,7 +324,7 @@ def parse_args():
 
     parser.add_argument('--user-emb', type=str, default="Short_term",
                         help='Select type of user embedding: Complete, Short_term and Long_term')
-    parser.add_argument('--loss-f', type=str, default="MetricLearning",
+    parser.add_argument('--loss-f', type=str, default="Inner_product",
                         help='Select type of loss function: MetricLearning and Inner_product')
     parser.add_argument('--window-size', type=int, default=5,
                         help='ProNADE Input Data Window size(0:Use all product bought before)')
@@ -332,15 +336,17 @@ def parse_args():
                         help='size of User lhort-term preference')                
     parser.add_argument('--activation', type=str, default='sigmoid',
                         help='which activation to use: sigmoid|tanh')
-    parser.add_argument('--learning-rate', type=float, default=1e-4,
+    parser.add_argument('--learning-rate', type=float, default=1e-6,
                         help='initial learning rate')
     parser.add_argument('--epoch', type=int, default=200,
                         help='train data epoch')
     parser.add_argument('--batch-size', type=int, default=64,
                         help='the batch size')
     parser.add_argument('--validation-batch-size', type=int, default=64,
-                        help='the batch size of validation')              
-    parser.add_argument('--neg-sample-num', type=int, default=99, # 原来5
+                        help='the batch size of validation')
+    parser.add_argument('--predict-neg-num', type=int, default=99, # 为了predict
+                        help='the number of negative sample')              
+    parser.add_argument('--neg-sample-num', type=int, default=5, # 原来5
                         help='the number of negative sample')
     parser.add_argument('--log-every', type=int, default=10,
                         help='print loss after this many steps')

@@ -79,37 +79,29 @@ def GetItemRankList_innerProduct(probRank,current_id):
 
 
 # AllProductEmb -> [product_size, emb_size] 
-def GetItemRankList(AllUserEmb, UserEmb, current_user_id, userDictKey):
-    allUserList = list(userDictKey)[1:]
-    allUserList.pop(current_user_id)
-
-    RankList = random.sample(allUserList,99) + [current_user_id]
-    random.shuffle(RankList)
-    current_user_index = RankList.index(current_user_id)
-
-    userCandidates = tf.nn.embedding_lookup(AllUserEmb, RankList ,name="embedding_item")
-    sess = tf.compat.v1.Session()
-    userCandidatesEmb = sess.run(userCandidates)
- 
-    expand_dim_num = len(RankList)
+def GetItemRankList(AllUserEmb, UserEmb, current_user_id, testuid):
+    # test emb: 100 120
+    expand_dim_num = np.shape(AllUserEmb)[0]
     UserEmb = np.tile(UserEmb,(expand_dim_num,1))
 
+    current_user_index = list(testuid).index(current_user_id)
+
     depth = 10
-    RankList_index = np.argsort(np.mean(np.square(UserEmb-userCandidatesEmb),axis=1))[0:depth]
+    RankList_index = np.argsort(np.mean(np.square(UserEmb-AllUserEmb),axis=1))[0:depth]
     r = np.equal(RankList_index, np.array([current_user_index] *depth)).astype(int)   # 对位
     per_hr10 = hit_rate(r)
     per_mrr10 = mean_reciprocal_rank(r)
     per_ndcg10 = dcg_at_k(r, depth, 1)
 
     depth = 20
-    RankList_index = np.argsort(np.mean(np.square(UserEmb-userCandidatesEmb),axis=1))[0:depth]
+    RankList_index = np.argsort(np.mean(np.square(UserEmb-AllUserEmb),axis=1))[0:depth]
     r = np.equal(RankList_index, np.array([current_user_index] *depth)).astype(int)   # 对位
     per_hr20 = hit_rate(r)
     per_mrr20 = mean_reciprocal_rank(r)
     per_ndcg20 = dcg_at_k(r, depth, 1)
 
     depth = 50
-    RankList_index = np.argsort(np.mean(np.square(UserEmb-userCandidatesEmb),axis=1))[0:depth]
+    RankList_index = np.argsort(np.mean(np.square(UserEmb-AllUserEmb),axis=1))[0:depth]
     r = np.equal(RankList_index, np.array([current_user_index] *depth)).astype(int)   # 对位
     per_hr50 = hit_rate(r)
     per_mrr50 = mean_reciprocal_rank(r)

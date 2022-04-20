@@ -66,3 +66,11 @@ name 'vid' is not defined
 list indices must be integers or slices, not str
 invalid literal for int() with base 10: '0.0'
 name 'maxBid' is not defined
+float division by zero
+float division by zero
+float division by zero
+float division by zero
+1092
+1092
+1092
+1092

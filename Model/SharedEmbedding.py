@@ -14,22 +14,10 @@ class Embedding(object):
         # user product 转成 one-hot!!
         self.params = params
 
-        UserMatrix=np.identity(self.userNum,dtype=np.bool_)   # 對角矩陣
-        ItemMatrix=np.identity(self.productNum,dtype=np.bool_)
-
-        ItemCoMatrix = np.concatenate((ItemMatrix, np.array(self.itemFeatures)),1)
-        self.bidderRates = np.array(self.bidderRates).reshape(-1,1) # 升维 -> 2D
-        userCoMatrix = np.concatenate((UserMatrix, self.bidderRates),1)
-        
-        self.useremb = tf.constant(userCoMatrix,name="userids",dtype=tf.float32)
-        self.itememb = tf.constant(ItemCoMatrix,name="itemids",dtype=tf.float32)
-
-        self.allUserCoEmb=tf.compat.v1.layers.dense(inputs=self.useremb, units=params.embed_size,activation=tf.nn.crelu, kernel_initializer=tf.random_normal_initializer(stddev=0.01))
-        self.allItemCoEmb=tf.compat.v1.layers.dense(inputs=self.itememb, units=params.embed_size,activation=tf.nn.crelu, kernel_initializer=tf.random_normal_initializer(stddev=0.01))
 
         const = tf.constant_initializer(0.0)
-        self.product_linear_w = tf.compat.v1.get_variable('w',
-            [params.embed_size, params.embed_size],
+        self.useridemb = tf.compat.v1.get_variable('w',
+            [self.userNum, params.embed_size-1],
             initializer=tf.keras.initializers.glorot_normal()
         )
         self.product_linear_b = tf.compat.v1.get_variable('b', 
@@ -38,6 +26,17 @@ class Embedding(object):
 
         # Emebdding Layer 编码可训练层
         # User Embedding
+        # UserMatrix=np.identity(self.userNum,dtype=np.bool_)   # 對角矩陣
+        ItemMatrix=np.identity(self.productNum,dtype=np.bool_)
+
+        ItemCoMatrix = np.concatenate((ItemMatrix, np.array(self.itemFeatures)),1)
+        self.bidderRates = np.array(self.bidderRates).reshape(-1,1) # 升维 -> 2D
+        # userCoMatrix = np.concatenate((UserMatrix, self.bidderRates),1)
+        self.userrateemb = tf.constant(self.bidderRates,name="userids",dtype=tf.float32)
+
+        self.itememb = tf.constant(ItemCoMatrix,name="itemids",dtype=tf.float32)
+
+        self.allItemCoEmb=tf.compat.v1.layers.dense(inputs=self.itememb, units=params.embed_size,activation=None, kernel_initializer=tf.random_normal_initializer(stddev=0.01))
 
 
     # input : uid -> [batch_size, 1]
@@ -54,12 +53,14 @@ class Embedding(object):
 
     # auction-based function    
     def GetUserEmbedding(self, ids):
-        # ids = tf.cast(ids, tf.int32)
-        return tf.nn.embedding_lookup(self.allUserCoEmb, ids ,name="embedding_user")
+        ids = tf.cast(ids, tf.int32)
+        idemb = tf.nn.embedding_lookup(self.useridemb, ids ,name="embedding_user")
+        rateemb = tf.nn.embedding_lookup(self.userrateemb, ids ,name="embedding_user")
+        return tf.concat([idemb,rateemb], axis=-1)
 
     def GetItemEmbedding(self, ids):
-        # ids = tf.cast(ids, tf.int32)
+        ids = tf.cast(ids, tf.int32)
         return tf.nn.embedding_lookup(self.allItemCoEmb, ids,name="embedding_item")
 
     def GetAllUserEmbedding(self):
-        return self.allUserCoEmb
+        return tf.concat([self.useridemb,self.userrateemb], axis=1)

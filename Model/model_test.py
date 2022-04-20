@@ -248,12 +248,14 @@ def Loss_F(useremb, product_pos, product_neg, k):
 
 def Inner_product(useremb, product_pos, product_neg, k):
     # u_plus_q = user+query
-    u_plus_q = useremb 
+    u_plus_q = useremb # 64 
     dis_pos = tf.reduce_sum(tf.multiply(u_plus_q, product_pos), axis=1) 
     loss_pos = tf.reduce_mean(tf.math.log(tf.sigmoid(dis_pos)))
-    expand_u_plus_q = tf.tile(tf.expand_dims(u_plus_q, axis=1),[1,k,1])
+
+    expand_u_plus_q = tf.tile(tf.expand_dims(u_plus_q, axis=1),[1,k,1]) # 64 10
     dis_neg = tf.reduce_sum(tf.multiply(expand_u_plus_q, product_neg), axis=2) 
     loss_neg = tf.reduce_mean(tf.reduce_sum(tf.math.log(tf.sigmoid(tf.multiply(dis_neg, -1.0))),axis=1))
+    
     batch_loss = -1.0*(loss_pos + loss_neg)
     #return tf.reduce_mean(batch_loss), tf.reduce_mean(dis_pos), tf.reduce_mean(dis_neg)
     return batch_loss, tf.reduce_mean(dis_pos), tf.reduce_mean(dis_neg)
@@ -279,59 +281,96 @@ class Seq(object):
     def __init__(self, Embed, params):
         self.auctionID = tf.compat.v1.placeholder(tf.int32, shape=(None), name = 'pid')
         self.current_user_id = tf.compat.v1.placeholder(tf.int32, shape=(None), name='current_user_id')
+        self.current_user_history = tf.compat.v1.placeholder(tf.float32, shape=[None,None], name='current_user_history')
+        self.current_user_bidtime = tf.compat.v1.placeholder(tf.int32, shape=(None), name='current_user_bidtime')
         self.current_user_neg_id = tf.compat.v1.placeholder(tf.int32, shape=[None,None], name='current_user_neg_id')
        
         self.short_term_before_user_id = tf.compat.v1.placeholder(tf.int32, shape=[None,None], name='short_term_before_user_id')
+        self.short_term_before_user_history = tf.compat.v1.placeholder(tf.float32, shape=[None,None,None], name='short_term_before_user_history')
+        self.short_term_before_user_bidtime = tf.compat.v1.placeholder(tf.int32, shape=[None,None], name='short_term_before_user_bidtime')
         self.short_term_before_user_len = tf.compat.v1.placeholder(tf.int32, shape=(None), name='short_term_before_user_len')
 
+        self.test_user_id = tf.compat.v1.placeholder(tf.float32, shape=(None), name='test_user_id')
         self.test_user_prob = tf.compat.v1.placeholder(tf.float32, shape=(None), name='test_user_probability')
 
         self.num_units = params.num_units
 
-        # test emb: 生成64 100 256的对应的user emb矩阵返回：
-        self.test_useremb = Embed.GetAllUserEmbedding()
-
         # emb
-        self.item_ID_emb = Embed.GetItemEmbedding(self.auctionID)
+        self.item_ID_emb = Embed.GetItemEmbedding(self.auctionID)   # 64 60
+
         self.transformer_INPUT_k_v = tf.tile(tf.expand_dims(self.item_ID_emb, axis=1),[1,params.short_term_size,1])
 
         # current user -> [uid, rate,bid] -> one-hot + 2 -> 非线性方程
         # 顺便处理neg
-        self.pos_user_emb = Embed.GetUserEmbedding(self.current_user_id)
-        self.neg_user_emb = Embed.GetUserEmbedding(self.current_user_neg_id)
+        self.pos_user_emb = tf.reshape(Embed.GetUserEmbedding(self.current_user_id), [-1,params.embed_size])    # 64 120
+        self.neg_user_emb = tf.reshape(Embed.GetUserEmbedding(self.current_user_neg_id)  , [-1,5,params.embed_size])  # 64 99 120
+        self.test_useremb = Embed.GetUserEmbedding(self.test_user_id)   # 64 100 60
+        self.test_useremb = tf.reshape(self.test_useremb, [-1,100,params.embed_size])    # 64 100 120
+
+        self.pos_user_emb=tf.compat.v1.layers.dense(inputs=self.pos_user_emb, units=params.embed_size,activation=tf.nn.relu, kernel_initializer=tf.random_normal_initializer(stddev=0.01))
+        self.neg_user_emb=tf.compat.v1.layers.dense(inputs=self.neg_user_emb, units=params.embed_size,activation=tf.nn.relu, kernel_initializer=tf.random_normal_initializer(stddev=0.01))
+        self.test_useremb=tf.compat.v1.layers.dense(inputs=self.test_useremb, units=params.embed_size,activation=tf.nn.relu, kernel_initializer=tf.random_normal_initializer(stddev=0.01))
+        # 激活函数：tf.nn.relu
 
         #### MF for co-emb
         self.MFitems = tf.tile(tf.expand_dims(self.item_ID_emb, axis=1),[1,100,1])  # 64 100 120
-        self.MFusers = tf.tile(tf.expand_dims(self.pos_user_emb, axis=1),[1,1,1])   # 64 1 120
-        self.MFusers = tf.concat([self.MFusers, self.neg_user_emb],1)   # 64 100 120
-        self.InferInputMF=tf.multiply(self.MFusers, self.MFitems)   # 64 100 120
-        infer=tf.reduce_sum(self.InferInputMF, 2, name="inference") # 应该为64 100, prob
-        self.MF_output = infer
-        # regularizer = 5.32??? 是一位小数
-        regularizer = tf.add(UW*tf.nn.l2_loss(self.MFusers), IW*tf.nn.l2_loss(self.MFitems), name="regularizer")
+        # self.MFusers = tf.tile(tf.expand_dims(self.pos_user_emb, axis=1),[1,1,1])   # 64 1 120
+        # self.MFusers = tf.concat([self.MFusers, self.neg_user_emb],1)   # 不對啊，true一直在第一個？64 100 120
         
+        self.MFusers = self.test_useremb        
+        # 将user 和item的矩阵做点乘
+        self.InferInputMF=tf.multiply(self.MFusers, self.MFitems)   # 64 100 120
+        # 求和得出每对{user,item}的概率
+        infer=tf.reduce_sum(self.InferInputMF, 2, name="inference") # 应该为64 100, prob
+
+        self.MFoutput = infer
+
+        # MF的损失函数:
+        regularizer = tf.add(UW*tf.nn.l2_loss(self.MFusers), IW*tf.nn.l2_loss(self.MFitems), name="regularizer")
         global_step = tf.compat.v1.train.get_global_step()
-    
-        self.prob_batch = self.test_user_prob  # 64 1 120
-        # cost = 31 也是一位小数
-        cost_l2 = tf.nn.l2_loss(tf.subtract(infer, self.prob_batch))# 构思一个？
-        self.test= cost_l2  # 5.32???
+        self.prob_batch = self.test_user_prob  # 64 100
+        cost_l2 = tf.nn.l2_loss(tf.subtract(infer, self.prob_batch))# 64 100 with 64 100
         cost = tf.add(cost_l2, regularizer)
         self.opt_loss = cost
         self.train_op = tf.compat.v1.train.AdamOptimizer(params.learning_rate).minimize(cost, global_step=global_step)
+        
         #### MF for co-emb
 
 
 
         # 3373
         # Define Query-Based Attention LSTM for User's short-term inference
-        # self.short_term_user_emb = Embed.GetUserEmbedding(self.short_term_before_user_id)
-        # self.short_term_lstm_layer = tf.compat.v1.nn.rnn_cell.LSTMCell(self.num_units * 2, forget_bias=1)
-        # self.short_term_lstm_outputs,_ = tf.compat.v1.nn.dynamic_rnn(self.short_term_lstm_layer, self.short_term_user_emb, dtype="float32") 
-        # 64 5 256
+        # 这里的embedding层处理得有点乱
+        self.short_term_user_emb_id = Embed.GetUserEmbedding(self.short_term_before_user_id)   # 64 10 60
+        self.short_term_user_emb_input = tf.concat([self.short_term_user_emb_id, self.short_term_before_user_history],-1)
+        self.short_term_user_emb_input = tf.reshape(self.short_term_user_emb_input, [-1,params.short_term_size,3835])    # 64 100 120
+        
+        # MultiRec把第一层(dim+25)的输出作为正则化，第二层的输出用作相乘？(dim)
+        self.short_term_user_emb=tf.compat.v1.layers.dense(inputs=self.short_term_user_emb_input, units=params.embed_size,activation=tf.nn.relu, kernel_initializer=tf.random_normal_initializer(stddev=0.01))
+
+        # LSTM
+        self.short_term_lstm_layer = tf.compat.v1.nn.rnn_cell.LSTMCell(self.num_units, forget_bias=1)
+        self.short_term_lstm_outputs,_ = tf.compat.v1.nn.dynamic_rnn(self.short_term_lstm_layer, self.short_term_user_emb, dtype="float32") 
+        # output = 64 10 120
+
+        # 求attention
+        self.queryemb = self.item_ID_emb  # 64 60
+        short_term_expand_q = tf.tile(tf.expand_dims(self.queryemb, axis=1),[1,params.short_term_size,1])
+        self.short_term_expand_q = short_term_expand_q
+        self.short_term_attention = tf.nn.softmax(tf.multiply(self.short_term_lstm_outputs, short_term_expand_q))
+        
+        # attention * LSTM output
+        self.user_short_term_emb = tf.reduce_sum(tf.multiply(self.short_term_attention, self.short_term_lstm_outputs),axis=1)
+        # 链接item emb
+        short_term_combine_user_item_emb =  tf.concat([self.item_ID_emb, self.user_short_term_emb], 1)
+        
+        self.short_term_combine_weights=tf.Variable(tf.random.uniform([2 * params.embed_size, params.embed_size]))
+        self.short_term_combine_bias=tf.Variable(tf.random.uniform([params.embed_size]))
+
+        self.short_term_useremb = tf.tanh(tf.matmul(short_term_combine_user_item_emb, self.short_term_combine_weights) + self.short_term_combine_bias)
 
         # Transformer 一些默认设定：
-        # model_dim = params.embed_size*2
+        # model_dim = params.embed_size
         # max_len = MAX_LEN
         # n_layer = N_LAYER
         # n_head = N_HEAD
@@ -339,36 +378,18 @@ class Seq(object):
         # self.embed = PositionEmbedding(max_len, model_dim)
         # self.encoder = Encoder(n_head, model_dim, drop_rate, n_layer)
         
-        # x_embed = self.embed(self.short_term_user_emb)# x = 64,5,128 , y=1 5 128 和64 128不兼容 T
+        # x_embed = self.embed(self.transformer_INPUT_k_v)# x = 64,5,128 , y=1 5 128 和64 128不兼容 T
         # pad_mask = self._pad_mask(self.short_term_before_user_id)    # 64,1,1,5
         # self.mask = pad_mask# 64 1 1 5 120???
         # self.encoded_z = self.encoder.call(x_embed, x_embed, training=False, mask=pad_mask ) #64,5,128 
         # self.transformer_output = self.encoded_z[:, -1,:]
-        # # self.short_term_before_productemb = Embed.GetProductEmbedding(self.short_term_before_product_id)   #原来的productemb，64 5 128
-        # self.long_term_before_productemb = Embed.GetProductEmbedding(self.long_term_before_product_id)   #原来的productemb，64 5 128
- 
-
-        # # # 处理时间衰减比重 (64,5)-> (64,5,128) 但是没有半衰系数
-        # # self.timeDecay = tf.tile(tf.expand_dims(tf.exp(self.time_diff, name=None), axis=2),[1,1,params.embed_size])
-        
-        # # # self.short_term_lstm_outputs,_ = tf.nn.dynamic_rnn(self.short_term_lstm_layer, self.short_term_td_outputs, dtype="float32")  # 加type属性
-        # # self.short_term_td_outputs = tf.nn.softmax(tf.multiply(self.beforeproductemb, self.timeDecay)) #考虑时间差的影响, 64 5 128
-
-        # # Define Query-Based Attention LSTM for User's short-term inference
-        # self.short_term_lstm_layer = tf.compat.v1.nn.rnn_cell.LSTMCell(self.num_units, forget_bias=1)
-        # self.short_term_lstm_outputs,_ = tf.compat.v1.nn.dynamic_rnn(self.short_term_lstm_layer, self.short_term_input_productemb, dtype="float32")  # hidden: latent representation [64,5,100]
-
+     
 
         # x = self.short_term_before_product_id
         # # tensorflow call函数：
         # # short_term_td_outputs( short_term_input_productemb + timedecay)
         # short_term_expand_q = tf.tile(tf.expand_dims(current_pid_time_2d, axis=1),[1,params.short_term_size,1])
 
-        # x_embed = self.embed(self.short_term_input_productemb)# x = 64,5,128 , y=1 5 128 和64 128不兼容 T
-        # pad_mask = self._pad_mask(x)    # 64,1,1,5
-        # self.encoded_z = self.encoder.call(x_embed, x_embed, training=False, mask=pad_mask ) #64,5,128 
-
-        # # current_pid_bidderList
         
         # # lstm 输出是： self.short_term_lstm_outputs
         # # transformer 输出是： self.encoded_z[:,-1,:] 最后一层
@@ -379,112 +400,66 @@ class Seq(object):
         # self.user_short_term_emb = tf.reduce_sum(tf.multiply(self.short_term_attention, self.short_term_lstm_outputs),axis=1)
         # short_term_combine_user_item_emb =  tf.concat([self.user_ID_emb, self.user_short_term_emb], 1)
 
-        # # 全连接层。
-        # self.short_term_combine_weights=tf.Variable(tf.random.normal([2 * params.embed_size, params.embed_size]))
-        # self.short_term_combine_bias=tf.Variable(tf.random.normal([params.embed_size]))
-        # self.long_term_combine_weights=tf.Variable(tf.random.normal([2 * params.embed_size, params.embed_size]))
-        # self.long_term_combine_bias=tf.Variable(tf.random.normal([params.embed_size]))
-        
-        # self.short_term_useremb = tf.tanh(tf.matmul(short_term_combine_user_item_emb, self.short_term_combine_weights) + self.short_term_combine_bias)  # short-term preference
-
-
-        # if params.user_emb == "Complete":
-        #     self.useremb = self.long_term_useremb * self.long_short_rate + (1 - self.long_short_rate) * self.short_term_useremb
-        # elif params.user_emb == "Short_term":
-        # # if params.user_emb == "Short_term":
-
-        # self.user_short_term_emb = tf.reduce_sum(self.short_term_lstm_outputs,axis=1)
-        # self.short_term_combine_weights=tf.Variable(tf.random.normal([2 * params.embed_size, params.embed_size]))
-        # self.short_term_combine_bias=tf.Variable(tf.random.normal([params.embed_size]))
-        # self.short_term_useremb = tf.tanh(tf.matmul(self.user_short_term_emb, self.short_term_combine_weights) + self.short_term_combine_bias)  # short-term preference
-
-    
-        # self.useremb = self.transformer_output
-        #     # self.useremb = self.user_short_term_emb #without user emb
-        # elif params.user_emb == "Long_term":
-        #     self.useremb = self.long_term_useremb
-        #     # self.useremb = self.encoded_z[:,-1,:]  # last layer of transformer encoder
-        # else:
-        #     self.useremb = self.user_ID_emb
-        # # ------------------------------ MLP MODEL
-        # # 输入节点数
-        # # in_units = 784
-        # # # 隐含层节点数
-        # # h1_units = 300
-        # # # variable存储模型参数
-        # # # Variable长期存在并且每轮更新
-        # # # 隐含层初始化为截断的正态分布，标准差为0.1
-        # # w1 = tf.Variable(tf.random.truncated_normal([params.embed_size,h1_units],stddev = 0.1))
-        # # # 隐含层偏置用0初始化
-        # # b1 = tf.Variable(tf.zeros([h1_units]))
-        # # # 输出层用0初始化，且维数为10
-        # # w2 = tf.Variable(tf.zeros([h1_units,params.embed_size]))
-        # # b2 = tf.Variable(tf.zeros([params.embed_size]))
-
-        # # x = self.short_term_input_productemb # [64,5,128]
-        # # x = tf.reduce_sum(x,axis=1) # [64,128]
-        # # # 隐含层结构
-        # # # relu激活函数是梯度弥散的trick
-        # # hidden1 = tf.nn.relu(tf.matmul(x,w1)+b1)
-        # # # 对隐含层输出进行dropout
-        # # hidden1_drop = keras.layers.Dropout( rate = 0.1)
-        # # hidden1_drop_output = hidden1_drop(hidden1,False)
-        # # # 输出层结构
-        # # self.useremb = tf.nn.softmax(tf.matmul(hidden1_drop_output,w2)+b2)
-
 
         # # loss func还有另外两个！！！useremb+query -> +time [ 64 128]
 
-        # if params.loss_f == "Inner_product":
-        #     self.opt_loss, self.pos_loss, self.neg_loss = Inner_product(self.useremb, self.pos_user_emb, self.neg_user_emb, params.neg_sample_num)
-        # elif params.loss_f == "MetricLearning":
-        #     self.opt_loss, self.pos_loss, self.neg_loss = Loss_F(self.useremb, self.pos_user_emb, self.neg_user_emb, params.neg_sample_num)
-        # else:
-        #     self.opt_loss, self.pos_loss, self.neg_loss = Pairwise_Loss_F(self.useremb, self.pos_user_emb, self.neg_user_emb, params.neg_sample_num)
+        self.useremb = self.short_term_useremb
+        if params.loss_f == "Inner_product":
+            self.opt_loss, self.pos_loss, self.neg_loss = Inner_product(self.useremb, self.pos_user_emb, self.neg_user_emb, params.neg_sample_num)
+        elif params.loss_f == "MetricLearning":
+            self.opt_loss, self.pos_loss, self.neg_loss = Loss_F(self.useremb, self.pos_user_emb, self.neg_user_emb, params.neg_sample_num)
+        else:
+            self.opt_loss, self.pos_loss, self.neg_loss = Pairwise_Loss_F(self.useremb, self.pos_user_emb, self.neg_user_emb, params.neg_sample_num)
     
-        # regularizer = tf.add(UW*tf.nn.l2_loss(ul1mf), IW*tf.nn.l2_loss(il1mf), name="regularizer")
+        reg_losses = tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.REGULARIZATION_LOSSES)
+        self.opt_loss = self.opt_loss + sum(reg_losses)
 
-        # self.opt_loss = tf.nn.l2_loss(tf.subtract(self.useremb, self.pos_user_emb))
-        
-        # reg_losses = tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.REGULARIZATION_LOSSES)
-        # self.opt_loss = self.opt_loss + sum(reg_losses)
+        # self.dis_pos = tf.reduce_sum(tf.multiply(self.useremb, self.pos_user_emb), axis=1) 
+        # self.loss_pos = tf.reduce_mean(tf.math.log(tf.sigmoid(self.dis_pos)))
 
-        # # Optimiser
-        # step = tf.Variable(0, trainable=False)
-        # self.opt = gradients(
-        #     opt=tf.compat.v1.train.AdamOptimizer(learning_rate=params.learning_rate),
-        #     loss=self.opt_loss,
-        #     vars=tf.compat.v1.trainable_variables(),
-        #     step=step
-        # )
+        # Optimiser
+        step = tf.Variable(0, trainable=False)
+        self.opt = gradients(
+            opt=tf.compat.v1.train.AdamOptimizer(learning_rate=params.learning_rate),
+            loss=self.opt_loss,
+            vars=tf.compat.v1.trainable_variables(),
+            step=step
+        )
 
     # ((uid, cur_before_pids_pos,cur_before_pids_pos_len, cur_before_pids_flag, cur_before_pids_attr,current_pid_pos,cur_pids_attr))
-    def step(self, session, pid, cuid, sbu, sbul, cnuid,tprob, testmode = False):
-        # p,p_attrs_test,cu_test,sbu_test,sbul_test,cni_test
+    def step(self, session, pid, cuid, cuhis, cbidtime, sbu, sbuhis, sbidtime, sbul, cnuid,tid,tprob, testmode = False):
+        # cu_train,cuhis_train,cuBT_train,sbu_train,sbuhis_train,
         input_feed = {}
-        input_feed[self.auctionID.name] = pid   # 64 606
+        input_feed[self.auctionID.name] = pid   # 
 
-        input_feed[self.current_user_id.name] = cuid    # 64 3373
-        input_feed[self.current_user_neg_id.name] = cnuid # 64 5 3373
+        input_feed[self.current_user_id.name] = cuid    # 
+        input_feed[self.current_user_history.name] = cuhis    #  64，97【变】
+        input_feed[self.current_user_bidtime.name] = cbidtime    # 
+        input_feed[self.current_user_neg_id.name] = cnuid # 64 5 
 
-        input_feed[self.short_term_before_user_id.name] = sbu# 64 5 3
+        input_feed[self.short_term_before_user_id.name] = sbu# 64 10 3
+        input_feed[self.short_term_before_user_history.name] = sbuhis # 64 10 97【变】
+        input_feed[self.short_term_before_user_bidtime.name] = sbidtime# 64 10
         input_feed[self.short_term_before_user_len.name] = sbul # 64
 
+        input_feed[self.test_user_id.name] = tid
         input_feed[self.test_user_prob.name] = tprob
+
         if testmode == False:
-            # output_feed = [self.opt, self.opt_loss, self.pos_loss, self.neg_loss]
-            output_feed = [self.train_op, self.opt_loss] # MF 的error
+            output_feed = [self.opt, self.opt_loss, self.pos_loss, self.neg_loss]
+            # output_feed = [self.train_op, self.opt_loss] # MF 的error
+            # output_feed = [ self.opt_loss,self.opt_loss]
         else:
             #u_plus_q = self.useremb + self.queryemb
-            # u_plus_q = self.useremb
-            # output_feed = [tf.shape(self.auctionID)[0], u_plus_q, self.test_useremb,self.opt_loss]
+            u_plus_q = self.useremb
+            output_feed = [tf.shape(self.auctionID)[0], u_plus_q, self.test_useremb,self.opt_loss]
 
             # MF 的error
-            output_feed = [tf.shape(self.auctionID)[0], self.MF_output, self.train_op]
+            # output_feed = [tf.shape(self.auctionID)[0], u_plus_q, self.opt_loss]
             
         outputs = session.run(output_feed, input_feed)
 
-        # short_feed = [ self.test ,self.prob_batch]
+        # short_feed = [ self.useremb, self.pos_user_emb,self.pos_loss, self.neg_loss]
         # short = session.run(short_feed, input_feed)
         # for i in range(len(short)):
         #     print("__________________________________")
@@ -493,20 +468,6 @@ class Seq(object):
 
         return outputs
         # return short
-
-    def summary(self, session, summarys):
-        # input_feed = {}
-        # input_feed[self.UserID.name] = uid
-        # input_feed[self.current_product_id.name] = cpid
-        # input_feed[self.current_product_neg_id.name] = cpnid
-        # input_feed[HR.name] = hr
-        # input_feed[MRR.name] = mrr
-        # input_feed[NDCG.name] = ndcg
-        # input_feed[AVG_LOSS.name] = avg_loss
-        output_feed = [summarys]
-        # outputs = session.run(output_feed, input_feed)
-        outputs = session.run(output_feed)
-        return outputs
 
     def _pad_bool(self, seqs):
         padding_idx=0

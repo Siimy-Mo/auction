@@ -33,7 +33,7 @@ def PreProcessData(params):
 
 	# 1是dict，2是df
 	print(params.neg_sample_num, max_auction_bids_len, DataSetSavePath, params.short_term_size, params.long_term_size)
-	Dataset = Data.DataSet(BidAuctionCombineData,MetaCombineData, params.neg_sample_num, max_auction_bids_len, params.short_term_size, params.long_term_size)
+	Dataset = Data.DataSet(BidAuctionCombineData,MetaCombineData, params.neg_sample_num, params.predict_neg_num,max_auction_bids_len, params.short_term_size, params.long_term_size)
 
 
 	print("End PreProcess Dataset!\n")
@@ -80,45 +80,63 @@ def Generate_Data(params):
 def Get_next_batch(Dataset, dataset, startpos, batch_size):
 	dataset_len = len(dataset)
 	CNIList = []
+	test_uid = []
 	test_user_probs = []
+
 	if (startpos + batch_size) > dataset_len:
-		# Auction_Data_X.append((testSignal, pid,pid_attrs, current_uid_pos,\
-        #                                         cur_before_uids_pos,cur_before_uids_pos_len))
 
 		pids = [dataset[i,1] for i in range(startpos, dataset_len)]
 		current_uid_pos = [dataset[i,2] for i in range(startpos, dataset_len)]
-		short_before_uid_pos = [dataset[i,3] for i in range(startpos, dataset_len)]
-		short_before_uid_pos_len = [dataset[i,4] for i in range(startpos, dataset_len)]
+		current_uid_history = [dataset[i,3] for i in range(startpos, dataset_len)]
+		current_bidTime = [dataset[i,4] for i in range(startpos, dataset_len)]
+		short_before_uid_pos = [dataset[i,5] for i in range(startpos, dataset_len)]
+		short_before_uid_history = [dataset[i,6] for i in range(startpos, dataset_len)]
+		cur_before_bidTime = [dataset[i,7] for i in range(startpos, dataset_len)]
+		short_before_uid_pos_len = [dataset[i,8] for i in range(startpos, dataset_len)]
 		for i in range(dataset_len - startpos):
+			# for predict
 			user_prob = [0 for i in range(100)]
-			current_neg_user = Dataset.neg_sample(current_uid_pos[i])
-			allusers = [current_uid_pos[i]] + current_neg_user
-			CNIList.append(current_neg_user)
+			current_test_user = Dataset.predict_users(current_uid_pos[i])
+			allusers = [current_uid_pos[i]] + current_test_user
 
 			random.shuffle(allusers)
 			user_prob[allusers.index(current_uid_pos[i])] = 1
+			test_uid.append(allusers)
 			test_user_probs.append(user_prob)
+			
+			# CNI for loss
+			current_neg_user = Dataset.neg_sample(current_uid_pos[i])
+			CNIList.append(current_neg_user)
 			if current_uid_pos[i] in CNIList[i]:
 				print(current_uid_pos[i],CNIList[i])
 	else:
 		pids = [dataset[i,1] for i in range(startpos, startpos + batch_size)]
 		current_uid_pos = [dataset[i,2] for i in range(startpos, startpos + batch_size)]
-		short_before_uid_pos = [dataset[i,3] for i in range(startpos, startpos + batch_size)]
-		short_before_uid_pos_len = [dataset[i,4] for i in range(startpos, startpos + batch_size)]
+		current_uid_history = [dataset[i,3] for i in range(startpos, startpos + batch_size)]
+		current_bidTime = [dataset[i,4] for i in range(startpos, startpos + batch_size)]
+		short_before_uid_pos = [dataset[i,5] for i in range(startpos, startpos + batch_size)]
+		short_before_uid_history = [dataset[i,6] for i in range(startpos, startpos + batch_size)]
+		cur_before_bidTime = [dataset[i,7] for i in range(startpos, startpos + batch_size)]
+		short_before_uid_pos_len = [dataset[i,8] for i in range(startpos, startpos + batch_size)]
 		for i in range(batch_size):
+			# for predict
 			user_prob = [0 for i in range(100)]
-			current_neg_user = Dataset.neg_sample(current_uid_pos[i])
-			allusers = [current_uid_pos[i]] + current_neg_user
-			CNIList.append(current_neg_user)
+			current_test_user = Dataset.predict_users(current_uid_pos[i])
+			allusers = [current_uid_pos[i]] + current_test_user
 
 			random.shuffle(allusers)
 			user_prob[allusers.index(current_uid_pos[i])] = 1
+			test_uid.append(allusers)
 			test_user_probs.append(user_prob)
+			
+			# CNI for loss
+			current_neg_user = Dataset.neg_sample(current_uid_pos[i])
+			CNIList.append(current_neg_user)
 			if current_uid_pos[i] in CNIList[i]:
 				print(current_uid_pos[i],CNIList[i])
 
-	return np.array(pids), np.array(current_uid_pos), \
-			np.array(short_before_uid_pos),np.array(short_before_uid_pos_len),np.array(CNIList),np.array(test_user_probs)
+	return np.array(pids), np.array(current_uid_pos),np.array(current_uid_history),np.array(current_bidTime), \
+			np.array(short_before_uid_pos),np.array(short_before_uid_history),np.array(cur_before_bidTime),np.array(short_before_uid_pos_len),np.array(CNIList),np.array(test_uid),np.array(test_user_probs)
 
 # Test
 #if __name__ == "__main__":

@@ -8,7 +8,7 @@
             "name": "Python: Current File",
             "type": "python",
             "request": "launch",
-            // "program": "mofan.py",
+            // "program": "dataStastistics.py",
             "program": "main_auction.py",
             // "program": "./Dataset/PreData.py",
             "console": "integratedTerminal",
